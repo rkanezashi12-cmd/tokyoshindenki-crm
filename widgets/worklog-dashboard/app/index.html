@@ -27,8 +27,14 @@
       </div>
     </div>
 
+    <div class="filters" role="group" aria-label="絞り込み">
+      <span class="filters-label">絞り込み</span>
+      <div id="ms-project"></div>
+      <div id="ms-process"></div>
+      <div class="chips" id="chips"></div>
+    </div>
+
     <div id="notice"></div>
-    <div class="chips" id="chips"></div>
 
     <div class="kpis" id="kpis"></div>
 
@@ -73,7 +79,7 @@
         <div class="card-body" id="body-process"></div>
       </section>
 
-      <section class="card" id="card-project">
+      <section class="card wide" id="card-project">
         <div class="card-head">
           <h2>PJ名別工数<span class="sub" id="sub-project"></span></h2>
           <div class="seg" data-view-for="project" role="group" aria-label="表示">
@@ -83,8 +89,10 @@
         </div>
         <div class="card-body" id="body-project"></div>
       </section>
+
+
     </div>
-    <p class="hint">棒をクリックすると、その担当者・工程・PJ で他のグラフを絞り込みます（もう一度クリックで解除）。</p>
+    <p class="hint">棒をクリックすると、その担当者・工程・PJ を絞り込みに加えます（もう一度クリックで外す）。PJ名・工程は上の「絞り込み」から複数選べます。</p>
   </div>
   <div class="tip" id="tip" role="tooltip"></div>
 

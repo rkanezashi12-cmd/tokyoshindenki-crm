@@ -5,7 +5,7 @@
   var CFG = window.WLD_CONFIG;
   var A = window.WLD_AGG;
 
-  var DIM_LABEL = { staff: "作業担当者", process: "工程", project: "PJ" };
+  var DIM_LABEL = { staff: "作業担当者", process: "工程", project: "PJ名" };
   var UNIT_LABEL = { day: "日", week: "週", month: "月" };
 
   var state = {
@@ -16,7 +16,9 @@
     rows: [],
     loadedFrom: "",
     loadedTo: "",
-    filters: { staff: null, project: null, process: null },
+    filters: { staff: [], project: [], process: [] },
+    // 選んだキー → 表示名（期間を変えて行が無くなっても絞り込みの表示に名前を出すため）
+    labels: { staff: {}, project: {}, process: {} },
     view: { period: "chart", staff: "chart", process: "chart", project: "chart" },
     loadToken: 0
   };
@@ -177,35 +179,152 @@
   }
 
   // ---- 描画 ----
-  function toggleFilter(dim, key) {
-    state.filters[dim] = state.filters[dim] === key ? null : key;
+  function rememberLabel(dim, key, label) {
+    state.labels[dim][key] = label;
+  }
+  function labelOf(dim, key) {
+    return state.labels[dim][key] || key;
+  }
+  function toggleFilter(dim, key, label) {
+    var list = state.filters[dim];
+    var i = list.indexOf(key);
+    if (i >= 0) list.splice(i, 1);
+    else {
+      list.push(key);
+      rememberLabel(dim, key, label);
+    }
+    render();
+  }
+  function clearFilter(dim) {
+    state.filters[dim] = [];
     render();
   }
 
   function renderChips() {
     var box = $("chips");
     box.innerHTML = "";
+    var active = 0;
     A.DIMS.forEach(function (dim) {
-      var key = state.filters[dim];
-      if (!key) return;
-      var label = key;
-      if (dim === "project") {
-        var hit = state.rows.find(function (r) { return r.project === key; });
-        label = hit ? hit.projectName : key;
-      }
+      var keys = state.filters[dim];
+      if (!keys.length) return;
+      active++;
+      var names = keys.slice(0, 2).map(function (k) { return labelOf(dim, k); }).join("、");
+      if (keys.length > 2) names += " 他" + (keys.length - 2) + "件";
       var x = el("button", { type: "button", "aria-label": DIM_LABEL[dim] + "の絞り込みを解除", text: "×" });
-      x.addEventListener("click", function () { toggleFilter(dim, key); });
-      box.appendChild(el("span", { class: "chip" }, [el("b", { text: DIM_LABEL[dim] }), el("span", { text: label }), x]));
+      x.addEventListener("click", function () { clearFilter(dim); });
+      var chip = el("span", { class: "chip", title: keys.map(function (k) { return labelOf(dim, k); }).join("\n") },
+        [el("b", { text: DIM_LABEL[dim] }), el("span", { class: "chip-names", text: names }), x]);
+      box.appendChild(chip);
     });
-    if (box.children.length > 1) {
-      var all = el("button", { type: "button", class: "btn", text: "絞り込みをすべて解除" });
+    if (active > 1) {
+      var all = el("button", { type: "button", class: "btn btn-sm", text: "すべて解除" });
       all.addEventListener("click", function () {
-        state.filters = { staff: null, project: null, process: null };
+        state.filters = { staff: [], project: [], process: [] };
         render();
       });
       box.appendChild(all);
     }
   }
+
+  // ---- 複数選択の絞り込み（検索つき） ----
+  function MultiSelect(container, dim, title) {
+    this.dim = dim;
+    this.title = title;
+    this.query = "";
+    this.btn = el("button", { type: "button", class: "ms-btn", "aria-haspopup": "true", "aria-expanded": "false" });
+    this.search = el("input", { type: "search", class: "ms-search", placeholder: title + "を検索（スペース区切りで絞り込み）", "aria-label": title + "を検索" });
+    this.count = el("div", { class: "ms-count" });
+    var selShown = el("button", { type: "button", class: "btn btn-sm", text: "表示中をすべて選択" });
+    var clear = el("button", { type: "button", class: "btn btn-sm", text: "選択を解除" });
+    this.list = el("div", { class: "ms-list", role: "group", "aria-label": title });
+    this.panel = el("div", { class: "ms-panel", hidden: "hidden" },
+      [this.search, el("div", { class: "ms-actions" }, [selShown, clear, this.count]), this.list]);
+    this.root = el("div", { class: "ms" }, [this.btn, this.panel]);
+    container.appendChild(this.root);
+
+    var self = this;
+    this.btn.addEventListener("click", function () { self.isOpen() ? self.close() : self.open(); });
+    this.search.addEventListener("input", function () { self.query = self.search.value; self.renderList(); });
+    selShown.addEventListener("click", function () {
+      self.visible.forEach(function (o) {
+        if (state.filters[dim].indexOf(o.key) < 0) {
+          state.filters[dim].push(o.key);
+          rememberLabel(dim, o.key, o.label);
+        }
+      });
+      self.renderList();
+      renderCharts();
+    });
+    clear.addEventListener("click", function () {
+      state.filters[dim] = [];
+      self.renderList();
+      renderCharts();
+    });
+    document.addEventListener("mousedown", function (e) {
+      if (self.isOpen() && !self.root.contains(e.target)) self.close();
+    });
+    this.root.addEventListener("keydown", function (e) {
+      if (e.key === "Escape" && self.isOpen()) { self.close(); self.btn.focus(); }
+    });
+    this.visible = [];
+  }
+  MultiSelect.prototype.isOpen = function () { return !this.panel.hidden; };
+  MultiSelect.prototype.open = function () {
+    this.panel.hidden = false;
+    this.btn.setAttribute("aria-expanded", "true");
+    this.renderList();
+    this.search.focus();
+  };
+  MultiSelect.prototype.close = function () {
+    this.panel.hidden = true;
+    this.btn.setAttribute("aria-expanded", "false");
+  };
+  // 選択肢：期間内の全明細から（他の絞り込みに関係なく）。工数の多い順。選択済みで期間内に無いものも残す
+  MultiSelect.prototype.options = function () {
+    var dim = this.dim;
+    var opts = A.groupSum(state.rows, dim);
+    var seen = {};
+    opts.forEach(function (o) { seen[o.key] = 1; });
+    state.filters[dim].forEach(function (k) {
+      if (!seen[k]) opts.push({ key: k, label: labelOf(dim, k), jobNo: "", hours: 0, count: 0 });
+    });
+    return opts;
+  };
+  MultiSelect.prototype.refresh = function () {
+    var n = state.filters[this.dim].length;
+    this.btn.textContent = "";
+    this.btn.appendChild(el("span", { class: "ms-title", text: this.title }));
+    this.btn.appendChild(el("span", { class: "ms-value" + (n ? " on" : ""), text: n ? n + "件選択" : "すべて" }));
+    this.btn.appendChild(el("span", { class: "ms-caret", "aria-hidden": "true", text: "▾" }));
+    if (this.isOpen()) this.renderList();
+  };
+  MultiSelect.prototype.renderList = function () {
+    var self = this, dim = this.dim;
+    var selected = {};
+    state.filters[dim].forEach(function (k) { selected[k] = 1; });
+    var q = this.query;
+    var all = this.options();
+    this.visible = all.filter(function (o) { return A.matchesSearch([o.label, o.jobNo], q); });
+    this.count.textContent = this.visible.length + " / " + all.length + " 件";
+    this.list.innerHTML = "";
+    if (!this.visible.length) {
+      this.list.appendChild(el("div", { class: "empty", text: "見つかりません" }));
+      return;
+    }
+    this.visible.forEach(function (o) {
+      var cb = el("input", { type: "checkbox" });
+      cb.checked = !!selected[o.key];
+      cb.addEventListener("change", function () {
+        var list = state.filters[dim], i = list.indexOf(o.key);
+        if (cb.checked && i < 0) { list.push(o.key); rememberLabel(dim, o.key, o.label); }
+        if (!cb.checked && i >= 0) list.splice(i, 1);
+        renderCharts();
+      });
+      var name = el("span", { class: "ms-name", text: o.label });
+      if (o.jobNo) name.appendChild(el("small", { text: " " + o.jobNo }));
+      self.list.appendChild(el("label", { class: "ms-item", title: o.label }, [cb, name, el("span", { class: "ms-h", text: fmtH(o.hours) + "h" })]));
+    });
+  };
 
   function renderKpis(rows) {
     var t = A.totals(rows);
@@ -226,7 +345,7 @@
 
   function groupTable(groups, total, dim) {
     var head = el("tr", null, [
-      el("th", { text: DIM_LABEL[dim] === "PJ" ? "PJ名" : DIM_LABEL[dim] }),
+      el("th", { text: DIM_LABEL[dim] }),
       dim === "project" ? el("th", { text: "JOB NO" }) : null,
       el("th", { class: "n", text: "工数(h)" }),
       el("th", { class: "n", text: "構成比" }),
@@ -246,7 +365,7 @@
   }
 
   function renderGroup(dim) {
-    var rows = A.applyFilters(state.rows, state.filters, dim);
+    var rows = A.applyFilters(state.rows, state.filters);
     var groups = A.groupSum(rows, dim);
     var total = groups.reduce(function (s, g) { return s + g.hours; }, 0);
     var body = $("body-" + dim);
@@ -261,8 +380,7 @@
       return;
     }
     var max = groups[0].hours || 1;
-    var sel = state.filters[dim];
-    var list = el("div", { class: "hbars" + (sel ? " has-sel" : "") });
+    var list = el("div", { class: "hbars" });
     groups.forEach(function (g) {
       var name = g.label + (g.jobNo ? "（" + g.jobNo + "）" : "");
       var aria = name + " " + fmtH(g.hours) + "時間";
@@ -272,9 +390,9 @@
       fill.style.width = "calc((100% - 56px) * " + Math.max(g.hours, 0) / max + ")";
       var plot = el("button", { type: "button", class: "hbar-plot", tabindex: "-1", "aria-hidden": "true" },
         [fill, el("span", { class: "hbar-val", text: fmtH(g.hours) + "h" })]);
-      var row = el("div", { class: "hbar" + (sel === g.key ? " sel" : "") }, [label, plot]);
+      var row = el("div", { class: "hbar" }, [label, plot]);
       [label, plot].forEach(function (t) {
-        t.addEventListener("click", function () { hideTip(); toggleFilter(dim, g.key); });
+        t.addEventListener("click", function () { hideTip(); toggleFilter(dim, g.key, g.label); });
         t.addEventListener("mouseenter", function (e) {
           var lines = [fmtH(g.hours) + " h（" + pct(g.hours, total) + "）", "明細 " + g.count + " 件"];
           if (dim === "project" && g.jobNo) lines.unshift("JOB NO " + g.jobNo);
@@ -299,7 +417,7 @@
   }
 
   function renderPeriod() {
-    var rows = A.applyFilters(state.rows, state.filters, null);
+    var rows = A.applyFilters(state.rows, state.filters);
     var series = A.seriesByPeriod(rows, state.loadedFrom, state.loadedTo, state.unit, CFG.weekStartsOn);
     var total = series.reduce(function (s, b) { return s + b.hours; }, 0);
     var body = $("body-period");
@@ -387,10 +505,16 @@
   }
 
   function render() {
-    hideTip();
     syncButtons();
+    renderCharts();
+  }
+
+  // 絞り込みの変更で描き直す部分（開いている絞り込みのパネルには触らない）
+  function renderCharts() {
+    hideTip();
     renderChips();
-    renderKpis(A.applyFilters(state.rows, state.filters, null));
+    selects.forEach(function (m) { m.refresh(); });
+    renderKpis(A.applyFilters(state.rows, state.filters));
     renderPeriod();
     renderGroup("staff");
     renderGroup("process");
@@ -435,10 +559,16 @@
   }
 
   // ---- 起動 ----
+  var selects = [];
   var started = false;
   function start() {
     if (started) return;
     started = true;
+    selects = [
+      new MultiSelect($("ms-project"), "project", "PJ名"),
+      new MultiSelect($("ms-process"), "process", "工程")
+    ];
+    selects.forEach(function (m) { m.refresh(); });
     bind();
     applyPreset(state.preset);
   }

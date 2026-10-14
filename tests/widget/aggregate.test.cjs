@@ -58,11 +58,23 @@ test("軸ごとの合計は工数の多い順。その他工数入力用 PJ も�
   assert.equal(proc[0].hours, 7.5);
 });
 
-test("絞り込みは自分の軸を除いて掛ける", () => {
-  const f = { staff: "八木 和明", project: null, process: "設計" };
-  assert.deepEqual(A.applyFilters(ROWS, f, null).map((r) => r.id), ["2"]);
-  assert.deepEqual(A.applyFilters(ROWS, f, "staff").map((r) => r.id), ["2", "3"]);
-  assert.deepEqual(A.applyFilters(ROWS, f, "process").map((r) => r.id), ["1", "2"]);
+test("絞り込み：同じ軸は「または」、軸どうしは「かつ」。空なら絞り込まない", () => {
+  const none = { staff: [], project: [], process: [] };
+  assert.equal(A.applyFilters(ROWS, none).length, ROWS.length);
+  assert.deepEqual(A.applyFilters(ROWS, { ...none, project: ["p1", "p3"] }).map((r) => r.id), ["1", "4"]);
+  assert.deepEqual(A.applyFilters(ROWS, { ...none, project: ["p1", "p2"], process: ["設計"] }).map((r) => r.id), ["2", "3"]);
+  assert.deepEqual(A.applyFilters(ROWS, { staff: ["八木 和明"], project: [], process: ["設計"] }).map((r) => r.id), ["2"]);
+  assert.deepEqual(A.applyFilters(ROWS, { ...none, process: ["無い工程"] }), []);
+});
+
+test("検索：全角・半角、大文字小文字、空白の違いを無視し、語をすべて含むものだけ", () => {
+  assert.ok(A.matchesSearch(["日鉄周南　REM用アンコイラ", "CE26004"], "rem"));
+  assert.ok(A.matchesSearch(["日鉄周南　REM用アンコイラ", "CE26004"], "日鉄 アンコイラ"));
+  assert.ok(A.matchesSearch(["日鉄周南　REM用アンコイラ", "CE26004"], "ｃｅ２６"));
+  assert.ok(A.matchesSearch(["日鉄周南　REM用アンコイラ", "CE26004"], "日鉄周南 REM"));
+  assert.ok(!A.matchesSearch(["日鉄周南　REM用アンコイラ", "CE26004"], "日鉄 WF"));
+  assert.ok(A.matchesSearch(["設計", ""], ""));
+  assert.ok(A.matchesSearch(["調整・試運転", ""], "試運転"));
 });
 
 test("期間別：日・週（月曜始まり）・月で切れ目なく並ぶ", () => {
