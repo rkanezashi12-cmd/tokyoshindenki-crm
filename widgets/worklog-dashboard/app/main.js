@@ -47,6 +47,10 @@
     if (text) n.appendChild(el("div", { class: "notice error", role: "alert", text: text }));
   }
   function filtered(rows) { return A.applyFilters(rows, state.filters); }
+  // 前期間に明細が1件も無い（運用開始前など）。このときは増減を出さない（「+817h」のように増えたと誤読されるため）
+  function noPrev() { return state.prevRows.length === 0; }
+  var NO_PREV = "前期間のデータなし";
+  function changeOrNone(cur, prev) { return noPrev() ? "-" : U.changeText(A.change(cur, prev)); }
   // 入力状況は1日の合計を見るので、担当者の絞り込みだけ掛ける
   function staffOnly(rows) {
     return A.applyFilters(rows, { staff: state.filters.staff, project: [], process: [] });
@@ -314,11 +318,11 @@
     var lacking = m.staff.reduce(function (a, s) { return a + s.missing + s.short; }, 0);
     var missing = m.staff.reduce(function (a, s) { return a + s.missing; }, 0);
     var items = [
-      { k: "合計工数", v: fmtH(t.hours), u: "h", sub: "前期間比 " + U.changeText(A.change(t.hours, pt.hours)) },
+      { k: "合計工数", v: fmtH(t.hours), u: "h", sub: noPrev() ? NO_PREV + "（" + state.prevFrom + "〜" + state.prevTo + "）" : "前期間比 " + U.changeText(A.change(t.hours, pt.hours)) },
       { k: "案件以外の割合", v: pct(indirect, t.hours).replace("%", ""), u: "%", sub: "受注前 " + pct(presales, t.hours), tab: "share" },
-      { k: "入力が足りない日", v: String(lacking), u: "人日", sub: "うち未入力 " + missing + " 人日（8h未満を含む）", tab: "input" },
+      { k: "入力が足りない日", v: String(lacking), u: "人日", sub: "未入力 " + missing + "・" + CFG.standardHoursPerDay + "h未満 " + (lacking - missing) + "（人日）", tab: "input" },
       { k: "作業担当者", v: String(t.staff), u: "人", sub: "入力のあった日 " + t.days + " 日" },
-      { k: "PJ", v: String(t.projects), u: "件", sub: "前期間 " + pt.projects + " 件" }
+      { k: "PJ", v: String(t.projects), u: "件", sub: noPrev() ? NO_PREV : "前期間 " + pt.projects + " 件" }
     ];
     var box = $("kpis");
     box.innerHTML = "";
@@ -354,8 +358,8 @@
       cols = cols.concat([
         { label: "工数(h)", num: true, get: function (g) { return fmtH(g.hours); } },
         { label: "構成比", num: true, get: function (g) { return pct(g.hours, total); } },
-        { label: "前期間(h)", num: true, get: function (g) { return fmtH(prev[g.key] || 0); } },
-        { label: "増減", num: true, get: function (g) { return U.changeText(A.change(g.hours, prev[g.key] || 0)); } },
+        { label: "前期間(h)", num: true, get: function (g) { return noPrev() ? "-" : fmtH(prev[g.key] || 0); } },
+        { label: "増減", num: true, get: function (g) { return changeOrNone(g.hours, prev[g.key] || 0); } },
         { label: "明細", num: true, get: function (g) { return g.count; } }
       ]);
       body.appendChild(U.table(cols, groups));
@@ -365,7 +369,7 @@
       onClick: function (g) { toggleFilter(dim, g.key, g.label); },
       tipLines: function (g) {
         var lines = [fmtH(g.hours) + " h（" + pct(g.hours, total) + "）", "明細 " + g.count + " 件",
-          "前期間 " + fmtH(prev[g.key] || 0) + " h → " + U.changeText(A.change(g.hours, prev[g.key] || 0))];
+          noPrev() ? NO_PREV : "前期間 " + fmtH(prev[g.key] || 0) + " h → " + U.changeText(A.change(g.hours, prev[g.key] || 0))];
         if (dim === "project" && g.jobNo) lines.unshift("JOB NO " + g.jobNo);
         return lines;
       }
@@ -385,7 +389,7 @@
     var prevTotal = A.totals(filtered(state.prevRows)).hours;
     var body = $(bodyId);
     body.innerHTML = "";
-    $(subId).textContent = "（" + UNIT_LABEL[state.unit] + "ごと・計 " + fmtH(total) + "h／前期間 " + fmtH(prevTotal) + "h）";
+    $(subId).textContent = "（" + UNIT_LABEL[state.unit] + "ごと・計 " + fmtH(total) + "h／" + (noPrev() ? NO_PREV : "前期間 " + fmtH(prevTotal) + "h") + "）";
     if (viewKey && state.view[viewKey] === "table") {
       var keys = dim ? scheme.keys.concat([A.OTHER]).filter(function (k) {
         return series.some(function (b) { return b.parts.some(function (p) { return p.key === k && p.hours > 0; }); });
@@ -532,7 +536,7 @@
     $("legend-share").innerHTML = "";
     $("legend-share").appendChild(U.legend(CAT_LABELS.map(function (l) { return { label: l, color: scheme.colorOf(l) }; })));
     $("sub-share").textContent = "（全体：" + ind + " " + pct(s.all.parts[ind], s.all.hours) + "・" + pre + " " + pct(s.all.parts[pre], s.all.hours) +
-      "／前期間 " + ind + " " + pct(prev.all.parts[ind] || 0, prev.all.hours) + "）";
+      "／" + (noPrev() ? NO_PREV : "前期間 " + ind + " " + pct(prev.all.parts[ind] || 0, prev.all.hours)) + "）";
     var body = $("body-share");
     body.innerHTML = "";
     if (!s.all.hours) {

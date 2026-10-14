@@ -65,6 +65,7 @@ API でつなぎ、機能を追加するためのリポジトリ。
 | `docs/setup.md` | 接続の手順（Self Client・スコープ・クラウド環境の設定・組織の固定） |
 | `widgets/worklog-dashboard/` | 工数ダッシュボード（ホーム画面用ウィジェット）。CRM の API 名は `app/config.js` だけ。`docs/worklog-dashboard/README.md` |
 | `scripts/package_widget.py` | ウィジェットをアップロード用の ZIP（`dist/`）にまとめる |
+| `scripts/verify_worklog_totals.py` | 工数の数字の突き合わせ（読み取りのみ）。明細の合計を工数入力の合計工数・ZPタスクの CRM実績工数と比べる |
 
 - 認証情報：環境変数 `TSD_ZOHO_CLIENT_ID`・`TSD_ZOHO_CLIENT_SECRET`・`TSD_ZOHO_REFRESH_TOKEN`（手元では `.env`）
 - `tsd_crm` は呼ぶたびに最初に `GET /crm/v8/org` で組織を照合する。組織を固定する前は `org` 以外を拒否する。
