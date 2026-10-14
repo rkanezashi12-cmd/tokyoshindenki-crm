@@ -1,0 +1,18 @@
+{
+  "_説明": "接続先を東京新電機様の Zoho CRM だけに固定する設定。秘密情報は入れない。expected_org はユーザーの了承を得てから `python -m tsd_crm pin --yes` で埋める（手で書き換えない）",
+  "dc": "jp",
+  "accounts_host": "accounts.zoho.jp",
+  "api_host": "www.zohoapis.jp",
+  "api_version": "v8",
+  "credential_env": {
+    "client_id": "TSD_ZOHO_CLIENT_ID",
+    "client_secret": "TSD_ZOHO_CLIENT_SECRET",
+    "refresh_token": "TSD_ZOHO_REFRESH_TOKEN"
+  },
+  "grant_code_env": "TSD_ZOHO_GRANT_CODE",
+  "expected_org": {
+    "id": "13772000000027719",
+    "domain_name": "org90001386318",
+    "company_name": "東京新電機株式会社"
+  }
+}

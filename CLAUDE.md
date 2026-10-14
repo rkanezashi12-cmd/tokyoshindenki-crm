@@ -43,7 +43,24 @@ API でつなぎ、機能を追加するためのリポジトリ。
 5. **秘密情報（クライアント ID・シークレット・リフレッシュトークン）はリポジトリに含めない。** `.env` は commit しない。
 6. ログにトークン・個人情報を出さない。
 7. Zoho の API で**実機で確かめた新しい挙動**は、正本のスキル（`zoho-agri-demo`）に追記する。
+8. **東京新電機様以外の Zoho 環境には絶対に触れない。** このアカウントには他社の Zoho 環境の MCP コネクタ
+   （`Kawahara_CRM_temp` など）もつながっている。Zoho への接続は **`python -m tsd_crm` だけ**を使い、
+   Zoho の MCP コネクタ・`curl` などでの直接呼び出し・`tsd_crm` を通さない自作スクリプトは使わない
+   （`.claude/settings.json` とフック `.claude/hooks/zoho_guard.py` で止めている。外さない）。
+   `tsd_crm` が組織の不一致で中断したら、回避せずにユーザーに報告する。
 
 ## 4. 構成
 
-（未定。機能が決まったら書く）
+| パス | 中身 |
+|---|---|
+| `tsd_crm/` | 東京新電機様の CRM 専用クライアント（標準ライブラリのみ）。`python -m tsd_crm --help` |
+| `config/zoho_target.json` | 接続先（.jp のホスト・認証情報の環境変数名・固定した組織）。秘密情報は入れない |
+| `.claude/settings.json`・`.claude/hooks/zoho_guard.py` | Zoho の MCP コネクタと Zoho への直接の呼び出しを止める |
+| `tests/` | 守りのテスト（Zoho には接続しない）。`python3 -m unittest -v` |
+| `docs/setup.md` | 接続の手順（Self Client・スコープ・クラウド環境の設定・組織の固定） |
+
+- 認証情報：環境変数 `TSD_ZOHO_CLIENT_ID`・`TSD_ZOHO_CLIENT_SECRET`・`TSD_ZOHO_REFRESH_TOKEN`（手元では `.env`）
+- `tsd_crm` は呼ぶたびに最初に `GET /crm/v8/org` で組織を照合する。組織を固定する前は `org` 以外を拒否する。
+  固定（`pin --yes`）は**ユーザーが東京新電機様の組織だと了承してから**
+- 書き込みは `write ... --allow-write`（ユーザーの指示があるときだけ）。DELETE は無い
+- 機能が決まったら、ここに書き足す
