@@ -84,8 +84,44 @@ button, input, select { font: inherit; color: inherit; }
 .btn:hover, .seg button:hover { background: var(--accent-soft); }
 .status { color: var(--text-muted); font-size: 12px; }
 
-.chips { display: flex; flex-wrap: wrap; gap: 6px; margin: -4px 0 12px; min-height: 0; }
+/* ---- 絞り込みの行 ---- */
+.filters { display: flex; flex-wrap: wrap; align-items: center; gap: 8px; margin-bottom: 12px; }
+.filters-label { color: var(--text-secondary); font-size: 12px; }
+.chips { display: flex; flex-wrap: wrap; align-items: center; gap: 6px; }
 .chips:empty { display: none; }
+.chip-names { max-width: 280px; overflow: hidden; text-overflow: ellipsis; white-space: nowrap; }
+.btn-sm { padding: 2px 8px; min-height: 24px; font-size: 12px; }
+
+.ms { position: relative; }
+.ms-btn {
+  display: inline-flex; align-items: center; gap: 6px; border: 1px solid var(--border); border-radius: 6px;
+  background: var(--surface-1); padding: 4px 10px; min-height: 28px; cursor: pointer;
+}
+.ms-btn:hover { background: var(--accent-soft); }
+.ms-title { color: var(--text-secondary); }
+.ms-value { color: var(--text-primary); }
+.ms-value.on { font-weight: 700; }
+.ms-caret { color: var(--text-muted); font-size: 11px; }
+.ms-panel {
+  position: absolute; top: calc(100% + 4px); left: 0; z-index: 20; width: min(440px, calc(100vw - 32px));
+  background: var(--surface-1); border: 1px solid var(--border); border-radius: 8px; padding: 8px;
+  box-shadow: 0 6px 20px rgba(0,0,0,.16);
+}
+.ms-panel[hidden] { display: none; }
+.ms-search {
+  width: 100%; border: 1px solid var(--border); border-radius: 6px; padding: 5px 8px; background: var(--page); min-height: 30px;
+}
+.ms-actions { display: flex; align-items: center; gap: 6px; margin: 6px 0; }
+.ms-count { margin-left: auto; color: var(--text-muted); font-size: 12px; }
+.ms-list { max-height: 300px; overflow: auto; border-top: 1px solid var(--border); }
+.ms-item {
+  display: flex; align-items: center; gap: 8px; padding: 4px 4px; border-bottom: 1px solid var(--border); cursor: pointer;
+}
+.ms-item:hover { background: var(--accent-soft); }
+.ms-item input { margin: 0; flex: none; }
+.ms-name { flex: 1; min-width: 0; overflow: hidden; text-overflow: ellipsis; white-space: nowrap; }
+.ms-name small { color: var(--text-muted); }
+.ms-h { color: var(--text-muted); font-size: 12px; flex: none; }
 .chip {
   display: inline-flex; align-items: center; gap: 6px; border: 1px solid var(--border); background: var(--surface-1);
   border-radius: 999px; padding: 2px 4px 2px 10px; font-size: 12px;
@@ -101,7 +137,9 @@ button, input, select { font: inherit; color: inherit; }
 .kpi .v small { font-size: 12px; font-weight: 400; color: var(--text-secondary); margin-left: 2px; }
 
 /* ---- カード ---- */
-.grid { display: grid; grid-template-columns: repeat(auto-fit, minmax(320px, 1fr)); gap: 12px; }
+/* 期間別（全幅）→ 担当者別・工程別（2列）→ PJ名別（全幅） */
+.grid { display: grid; grid-template-columns: repeat(2, minmax(0, 1fr)); gap: 12px; }
+@media (max-width: 720px) { .grid { grid-template-columns: minmax(0, 1fr); } }
 .card { background: var(--surface-1); border: 1px solid var(--border); border-radius: 8px; padding: 12px 14px; min-width: 0; }
 .card.wide { grid-column: 1 / -1; }
 .card-head { display: flex; align-items: center; justify-content: space-between; gap: 8px; margin-bottom: 8px; flex-wrap: wrap; }
@@ -109,7 +147,9 @@ button, input, select { font: inherit; color: inherit; }
 .card-head .sub { color: var(--text-muted); font-size: 12px; margin-left: 6px; font-weight: 400; }
 .card-tools { display: flex; gap: 6px; align-items: center; }
 .card-body { max-height: 360px; overflow: auto; }
-.card.wide .card-body { max-height: none; }
+#card-period .card-body { max-height: none; }
+#card-project .card-body { max-height: 520px; }
+#card-project .hbars { grid-template-columns: minmax(120px, 34%) 1fr; }
 .hint { color: var(--text-muted); font-size: 12px; margin-top: 6px; }
 .empty { color: var(--text-muted); padding: 24px 0; text-align: center; }
 
@@ -130,9 +170,6 @@ button, input, select { font: inherit; color: inherit; }
   height: 16px; background: var(--series-1); border-radius: 0 4px 4px 0; min-width: 2px; flex: none;
 }
 .hbar-val { color: var(--text-secondary); white-space: nowrap; font-size: 12px; }
-.hbars.has-sel .hbar:not(.sel) .hbar-fill { opacity: .3; }
-.hbars.has-sel .hbar:not(.sel) .hbar-label { color: var(--text-muted); }
-.hbar.sel .hbar-label { font-weight: 700; }
 .hbar-label:hover, .hbar-plot:hover .hbar-val { text-decoration: underline; }
 .hbar-label:focus-visible, .hbar-plot:focus-visible { outline: 2px solid var(--series-1); outline-offset: 1px; }
 

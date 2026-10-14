@@ -124,17 +124,35 @@
   }
 
   // ---- 絞り込み・集計 ----
-  // filters: { staff: key|null, project: key|null, process: key|null }
-  // except：その軸の絞り込みは掛けない（自分の軸のグラフでは、選んだ棒以外も見せるため）
-  function applyFilters(rows, filters, except) {
+  // filters: { staff: [key...], project: [key...], process: [key...] }（空＝絞り込まない。同じ軸の中は「または」）
+  function applyFilters(rows, filters) {
+    var active = DIMS.filter(function (dim) { return filters[dim] && filters[dim].length; });
+    if (!active.length) return rows;
+    var sets = {};
+    active.forEach(function (dim) {
+      sets[dim] = {};
+      filters[dim].forEach(function (k) { sets[dim][k] = 1; });
+    });
     return rows.filter(function (r) {
-      for (var i = 0; i < DIMS.length; i++) {
-        var dim = DIMS[i];
-        if (dim === except) continue;
-        if (filters[dim] && r[dim] !== filters[dim]) return false;
+      for (var i = 0; i < active.length; i++) {
+        if (!sets[active[i]][r[active[i]]]) return false;
       }
       return true;
     });
+  }
+
+  // 検索用の正規化：全角・半角をそろえ（NFKC）、大文字小文字と空白の違いを無視する
+  function normalizeText(s) {
+    var t = String(s || "");
+    if (t.normalize) t = t.normalize("NFKC");
+    return t.toLowerCase().replace(/\s+/g, "");
+  }
+  // 空白で区切った語をすべて含むか（名前・JOB NO のどちらに含まれてもよい）
+  function matchesSearch(texts, query) {
+    var words = String(query || "").split(/[\s\u3000]+/).map(normalizeText).filter(Boolean);
+    if (!words.length) return true;
+    var hay = texts.map(normalizeText).join("\n");
+    return words.every(function (w) { return hay.indexOf(w) >= 0; });
   }
 
   function round1(n) {
@@ -234,6 +252,8 @@
     buildQuery: buildQuery,
     normalizeRow: normalizeRow,
     applyFilters: applyFilters,
+    normalizeText: normalizeText,
+    matchesSearch: matchesSearch,
     groupSum: groupSum,
     seriesByPeriod: seriesByPeriod,
     totals: totals,
