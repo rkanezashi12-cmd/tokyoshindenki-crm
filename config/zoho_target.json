@@ -9,6 +9,7 @@
     "client_secret": "TSD_ZOHO_CLIENT_SECRET",
     "refresh_token": "TSD_ZOHO_REFRESH_TOKEN"
   },
+  "grant_code_env": "TSD_ZOHO_GRANT_CODE",
   "expected_org": {
     "id": null,
     "domain_name": null,

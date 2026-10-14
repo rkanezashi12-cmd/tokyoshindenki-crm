@@ -14,6 +14,7 @@ import getpass
 import json
 import os
 import sys
+import urllib.error
 import urllib.parse
 from pathlib import Path
 
@@ -71,8 +72,11 @@ def exchange_code(cfg):
     client_id = os.environ.get(names["client_id"]) or file_values.get(names["client_id"])
     client_secret = os.environ.get(names["client_secret"]) or file_values.get(names["client_secret"])
     if not client_id or not client_secret:
-        raise GuardError(f"先に .env に {names['client_id']} と {names['client_secret']} を書いてください")
-    code = getpass.getpass("Self Client で発行した認可コード（表示されません）: ").strip()
+        raise GuardError(f"先に環境変数（または .env）に {names['client_id']} と {names['client_secret']} を設定してください")
+    # クラウド環境では端末から入力できないので、環境の設定に入れた認可コードを読む（チャットに貼らせない）
+    code = os.environ.get(cfg["grant_code_env"], "").strip()
+    if not code:
+        code = getpass.getpass("Self Client で発行した認可コード（表示されません）: ").strip()
     body = urllib.parse.urlencode({
         "grant_type": "authorization_code", "client_id": client_id,
         "client_secret": client_secret, "code": code,
@@ -139,6 +143,11 @@ def main(argv=None):
         sys.exit(2)
     except ZohoAPIError as e:
         print(f"Zoho API エラー：{e}", file=sys.stderr)
+        sys.exit(1)
+    except urllib.error.URLError as e:
+        print(f"Zoho に接続できません：{e.reason}。クラウド環境の Network access で "
+              f"{cfg['accounts_host']} と {cfg['api_host']} を許可しているか確かめてください（docs/setup.md）",
+              file=sys.stderr)
         sys.exit(1)
 
 

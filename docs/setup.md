@@ -28,37 +28,40 @@ ZohoCRM.org.READ,ZohoCRM.users.READ,ZohoCRM.modules.ALL,ZohoCRM.coql.READ,ZohoCR
 - レコードの読み書き・COQL・モジュールと項目の設定の読み取りまで。モジュールや項目を API で作る・変えるときは、
   スキル `zoho-crm-build` 第1章の構築用スコープで発行し直す（スコープは後から足せない）
 
-## 2. 認可コードをリフレッシュトークンに交換する（手元の端末で）
+## 2. クラウド環境に設定する（インストール不要・ブラウザだけ）
 
-チャットに秘密情報を貼らないため、交換は手元の端末で行う。
-
-```bash
-git clone https://github.com/rkanezashi12-cmd/tokyoshindenki-crm && cd tokyoshindenki-crm
-cat > .env <<'EOF'
-TSD_ZOHO_CLIENT_ID=（Client ID）
-TSD_ZOHO_CLIENT_SECRET=（Client Secret）
-EOF
-python3 -m tsd_crm exchange-code     # 認可コードを貼る（画面には出ない）
-```
-
-`.env` にリフレッシュトークンが保存され、接続先の組織（`company_name` など）が表示される。
-**東京新電機様の組織でなければ、ここで止めて Self Client を作り直す。**（`.env` は commit されない）
-
-## 3. Claude Code のクラウド環境に設定する
-
+秘密情報はチャットに貼らず、Claude Code の環境の設定画面に入れる。
 クラウド環境の設定（セッションのタイトルバーの環境メニュー → Edit）で：
 
+- **東京新電機様専用の環境を作る**（環境の設定は、その環境で開くすべてのセッションに渡るため。他社の作業と混ぜない）
 - **Network access**：Allowed domains に `accounts.zoho.jp` と `www.zohoapis.jp` を追加
   （Bulk Write を使うときは `upload.zoho.jp` も）。手順：<https://code.claude.com/docs/en/cloud-environments#network-access>
-- **環境変数**：`.env` の3つ（`TSD_ZOHO_CLIENT_ID`・`TSD_ZOHO_CLIENT_SECRET`・`TSD_ZOHO_REFRESH_TOKEN`）を登録
-- 環境の設定は、その環境で開く**すべてのセッションに渡る**。他社の作業と混ざらないよう、
-  **東京新電機様専用の環境を作る**ことを勧める
+- **環境変数**：Self Client の「Client Secret」タブの値を入れる
 
-新しいセッションから有効になる。
+```
+TSD_ZOHO_CLIENT_ID=（Client ID）
+TSD_ZOHO_CLIENT_SECRET=（Client Secret）
+```
+
+## 3. 認可コードをリフレッシュトークンに交換する
+
+1. Self Client の「Generate Code」で認可コードを発行する（期限は一番長いものを選ぶ）
+2. **すぐに**環境変数に `TSD_ZOHO_GRANT_CODE=（認可コード）` を足して保存する
+3. その環境で新しいセッションを開き、「認可コードを交換して」と頼む。
+   Claude が `python -m tsd_crm exchange-code` を実行し、リフレッシュトークンをリポジトリ直下の `.env`
+   （commit されない）に保存して、接続先の組織（`company_name` など）を表示する。
+   **東京新電機様の組織でなければ、ここで止めて Self Client を作り直す**
+4. アプリで `.env` を開き、`TSD_ZOHO_REFRESH_TOKEN=…` の行を環境変数に足す。
+   使い終わった `TSD_ZOHO_GRANT_CODE` は環境変数から消す（1回しか使えない）。Claude に `.env` を消してもらう
+
+期限内に交換できなかったら、認可コードを発行し直して 2 から。
+
+手元に Python がある場合は、`.env` に Client ID・Client Secret を書いて `python3 -m tsd_crm exchange-code` を
+実行してもよい（認可コードは画面に出ない形で入力する）。
 
 ## 4. 接続先の組織を固定する（最初の1回）
 
-新しいセッションで Claude に「組織を確かめて」と頼む。Claude は `python -m tsd_crm org` で組織を表示し、
+交換の直後（または次のセッション）で、Claude が `python -m tsd_crm org` で組織を表示する。
 ユーザーが東京新電機様の組織だと了承してから `python -m tsd_crm pin --yes` で
 `config/zoho_target.json` に固定して commit する。固定するまでは、組織の表示以外の操作はすべて拒否される。
 
