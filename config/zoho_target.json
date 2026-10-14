@@ -11,8 +11,8 @@
   },
   "grant_code_env": "TSD_ZOHO_GRANT_CODE",
   "expected_org": {
-    "id": null,
-    "domain_name": null,
-    "company_name": null
+    "id": "13772000000027719",
+    "domain_name": "org90001386318",
+    "company_name": "東京新電機株式会社"
   }
 }

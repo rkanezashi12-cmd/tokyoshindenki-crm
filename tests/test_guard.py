@@ -21,8 +21,8 @@ CREDS = {"client_id": "cid", "client_secret": "secret", "refresh_token": "rt"}
 
 def make_cfg(pinned=True):
     cfg = json.loads((ROOT / "config" / "zoho_target.json").read_text(encoding="utf-8"))
-    if pinned:
-        cfg["expected_org"] = {k: TSD_ORG[k] for k in tc.ORG_KEYS}
+    # 実際の設定ファイルが固定済みかどうかに左右されないよう、expected_org は毎回上書きする
+    cfg["expected_org"] = {k: TSD_ORG[k] if pinned else None for k in tc.ORG_KEYS}
     return cfg
 
 
