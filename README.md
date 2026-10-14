@@ -6,3 +6,4 @@
 - Zoho CRM API の実測リファレンス（スキル）：[`.claude/skills/zoho-crm-build/SKILL.md`](.claude/skills/zoho-crm-build/SKILL.md)
   - 正本は `rkanezashi12-cmd/zoho-agri-demo`。ここにあるのは写しで、`scripts/sync_zoho_skill.sh` で最新にする
 - 東京新電機様の CRM への接続（他の Zoho 環境に触れないしくみ・手順）：[`docs/setup.md`](docs/setup.md)
+- 工数ダッシュボード（ホーム画面用ウィジェット）：[`docs/worklog-dashboard/README.md`](docs/worklog-dashboard/README.md)

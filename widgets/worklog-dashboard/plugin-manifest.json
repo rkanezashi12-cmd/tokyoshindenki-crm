@@ -1,0 +1,15 @@
+{
+  "locale": ["en", "ja"],
+  "csp": "",
+  "storage": false,
+  "whiteListedDomains": [],
+  "cspDomains": { "connect-src": [], "img-src": [] },
+  "modules": {
+    "widgets": [{
+      "location": "custom",
+      "name": "WorkLogDashboard",
+      "url": "/app/index.html"
+    }]
+  },
+  "config": []
+}
