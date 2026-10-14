@@ -216,14 +216,14 @@
         [el("b", { text: DIM_LABEL[dim] }), el("span", { class: "chip-names", text: names }), x]);
       box.appendChild(chip);
     });
-    if (active > 1) {
-      var all = el("button", { type: "button", class: "btn btn-sm", text: "すべて解除" });
-      all.addEventListener("click", function () {
-        state.filters = { staff: [], project: [], process: [] };
-        render();
-      });
-      box.appendChild(all);
-    }
+    $("reset-filters").disabled = active === 0;
+  }
+
+  // 絞り込みをすべて外す（期間・日週月・グラフ／表の切り替えはそのまま）
+  function resetFilters() {
+    state.filters = { staff: [], project: [], process: [] };
+    selects.forEach(function (m) { m.reset(); });
+    render();
   }
 
   // ---- 複数選択の絞り込み（検索つき） ----
@@ -268,6 +268,11 @@
     });
     this.visible = [];
   }
+  MultiSelect.prototype.reset = function () {
+    this.query = "";
+    this.search.value = "";
+    this.close();
+  };
   MultiSelect.prototype.isOpen = function () { return !this.panel.hidden; };
   MultiSelect.prototype.open = function () {
     this.panel.hidden = false;
@@ -551,6 +556,7 @@
       });
     });
     $("reload").addEventListener("click", load);
+    $("reset-filters").addEventListener("click", resetFilters);
     var resizeTimer = null;
     window.addEventListener("resize", function () {
       clearTimeout(resizeTimer);
