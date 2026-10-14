@@ -21,14 +21,14 @@ class WidgetTest(unittest.TestCase):
         names = zipfile.ZipFile(ROOT / "dist" / "worklog-dashboard.zip").namelist()
         self.assertIn("plugin-manifest.json", names)
         self.assertIn("app/", names)  # ディレクトリエントリ
-        for f in ("app/index.html", "app/main.js", "app/config.js", "app/aggregate.js", "app/style.css", "app/sdk-loader.js"):
+        for f in ("app/index.html", "app/main.js", "app/config.js", "app/aggregate.js", "app/style.css", "app/sdk-loader.js", "app/ui.js"):
             self.assertIn(f, names)
         self.assertFalse(any(n.startswith("worklog-dashboard/") for n in names))  # 階層が増えていない
 
     def test_api_names_only_in_config(self):
         # CLAUDE.md ルール4：CRM の API 名は config.js にまとめる
         app = ROOT / "widgets" / "worklog-dashboard" / "app"
-        for f in ("main.js", "aggregate.js"):
+        for f in ("main.js", "aggregate.js", "ui.js"):
             src = (app / f).read_text(encoding="utf-8")
             for name in ("WorkLogItems", "Parent_Id", "ZP_Task", "Work_Date", "Task_Name", "Project_Name"):
                 self.assertNotIn(name, src, f"{f} に {name}")

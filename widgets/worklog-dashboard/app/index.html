@@ -37,63 +37,144 @@
 
     <div id="notice"></div>
 
-    <div class="kpis" id="kpis"></div>
+    <div id="main">
+      <div class="kpis" id="kpis"></div>
 
-    <div class="grid" id="main">
-      <section class="card wide" id="card-period">
-        <div class="card-head">
-          <h2>期間別工数<span class="sub" id="sub-period"></span></h2>
-          <div class="card-tools">
-            <div class="seg" id="units" role="group" aria-label="単位">
-              <button type="button" data-unit="day">日</button>
-              <button type="button" data-unit="week">週</button>
-              <button type="button" data-unit="month">月</button>
+      <div class="tabs" role="tablist" aria-label="分析">
+        <button type="button" role="tab" data-tab="overview" id="tab-overview">概要・推移</button>
+        <button type="button" role="tab" data-tab="input" id="tab-input">入力状況</button>
+        <button type="button" role="tab" data-tab="overdue" id="tab-overdue">期限超過</button>
+        <button type="button" role="tab" data-tab="cross" id="tab-cross">クロス分析</button>
+        <button type="button" role="tab" data-tab="share" id="tab-share">案件以外の割合</button>
+      </div>
+
+      <!-- 概要・推移 -->
+      <div class="grid" role="tabpanel" id="panel-overview" aria-labelledby="tab-overview">
+        <section class="card wide" id="card-period">
+          <div class="card-head">
+            <h2>期間別工数<span class="sub" id="sub-period"></span></h2>
+            <div class="card-tools">
+              <label class="pick">色分け
+                <select id="stack-by">
+                  <option value="">なし</option>
+                  <option value="category">区分</option>
+                  <option value="project">PJ名</option>
+                  <option value="staff">作業担当者</option>
+                  <option value="process">工程</option>
+                </select>
+              </label>
+              <div class="seg" id="units" role="group" aria-label="単位">
+                <button type="button" data-unit="day">日</button>
+                <button type="button" data-unit="week">週</button>
+                <button type="button" data-unit="month">月</button>
+              </div>
+              <div class="seg" data-view-for="period" role="group" aria-label="表示">
+                <button type="button" data-view="chart">グラフ</button>
+                <button type="button" data-view="table">表</button>
+              </div>
             </div>
-            <div class="seg" data-view-for="period" role="group" aria-label="表示">
+          </div>
+          <div class="card-body" id="body-period"></div>
+        </section>
+
+        <section class="card" id="card-staff">
+          <div class="card-head">
+            <h2>作業担当者別工数<span class="sub" id="sub-staff"></span></h2>
+            <div class="seg" data-view-for="staff" role="group" aria-label="表示">
               <button type="button" data-view="chart">グラフ</button>
               <button type="button" data-view="table">表</button>
             </div>
           </div>
-        </div>
-        <div class="card-body" id="body-period"></div>
-      </section>
+          <div class="card-body" id="body-staff"></div>
+        </section>
 
-      <section class="card" id="card-staff">
-        <div class="card-head">
-          <h2>作業担当者別工数<span class="sub" id="sub-staff"></span></h2>
-          <div class="seg" data-view-for="staff" role="group" aria-label="表示">
-            <button type="button" data-view="chart">グラフ</button>
-            <button type="button" data-view="table">表</button>
+        <section class="card" id="card-process">
+          <div class="card-head">
+            <h2>工程別工数<span class="sub" id="sub-process"></span></h2>
+            <div class="seg" data-view-for="process" role="group" aria-label="表示">
+              <button type="button" data-view="chart">グラフ</button>
+              <button type="button" data-view="table">表</button>
+            </div>
           </div>
-        </div>
-        <div class="card-body" id="body-staff"></div>
-      </section>
+          <div class="card-body" id="body-process"></div>
+        </section>
 
-      <section class="card" id="card-process">
-        <div class="card-head">
-          <h2>工程別工数<span class="sub" id="sub-process"></span></h2>
-          <div class="seg" data-view-for="process" role="group" aria-label="表示">
-            <button type="button" data-view="chart">グラフ</button>
-            <button type="button" data-view="table">表</button>
+        <section class="card wide" id="card-project">
+          <div class="card-head">
+            <h2>PJ名別工数<span class="sub" id="sub-project"></span></h2>
+            <div class="seg" data-view-for="project" role="group" aria-label="表示">
+              <button type="button" data-view="chart">グラフ</button>
+              <button type="button" data-view="table">表</button>
+            </div>
           </div>
-        </div>
-        <div class="card-body" id="body-process"></div>
-      </section>
+          <div class="card-body" id="body-project"></div>
+        </section>
+        <p class="hint wide">棒をクリックすると、その担当者・工程・PJ を絞り込みに加えます（もう一度クリックで外す）。PJ名・工程は上の「絞り込み」から複数選べます。前期間＝直前の同じ日数。</p>
+      </div>
 
-      <section class="card wide" id="card-project">
-        <div class="card-head">
-          <h2>PJ名別工数<span class="sub" id="sub-project"></span></h2>
-          <div class="seg" data-view-for="project" role="group" aria-label="表示">
-            <button type="button" data-view="chart">グラフ</button>
-            <button type="button" data-view="table">表</button>
+      <!-- ① 入力状況 -->
+      <div class="grid" role="tabpanel" id="panel-input" aria-labelledby="tab-input" hidden>
+        <section class="card wide">
+          <div class="card-head">
+            <h2>入力状況（作業担当者×日）<span class="sub" id="sub-input"></span></h2>
           </div>
-        </div>
-        <div class="card-body" id="body-project"></div>
-      </section>
+          <p class="note" id="note-input"></p>
+          <div id="legend-input"></div>
+          <div class="card-body scroll-x" id="body-input"></div>
+        </section>
+      </div>
 
+      <!-- ② 期限超過 -->
+      <div class="grid" role="tabpanel" id="panel-overdue" aria-labelledby="tab-overdue" hidden>
+        <section class="card wide">
+          <div class="card-head">
+            <h2>期限超過：ZPタスクの終了日より後に入った工数<span class="sub" id="sub-overdue"></span></h2>
+          </div>
+          <p class="note">Zoho Projects のタスクの終了日を過ぎてから工数が入っているタスクです。遅れ・手戻り・終了日の更新漏れのどれかの可能性があります。「ZPで完了」は Projects 上は完了済みなのに工数が入り続けているものです。</p>
+          <div class="card-body" id="body-overdue"></div>
+        </section>
+      </div>
 
+      <!-- ④ クロス分析 -->
+      <div class="grid" role="tabpanel" id="panel-cross" aria-labelledby="tab-cross" hidden>
+        <section class="card wide">
+          <div class="card-head">
+            <h2>クロス分析<span class="sub" id="sub-cross"></span></h2>
+            <div class="card-tools">
+              <div class="seg" id="cross-kind" role="group" aria-label="組み合わせ">
+                <button type="button" data-cross="project:process">PJ名×工程</button>
+                <button type="button" data-cross="staff:project">担当者×PJ名</button>
+                <button type="button" data-cross="staff:process">担当者×工程</button>
+              </div>
+              <div class="seg" id="cross-mode" role="group" aria-label="値">
+                <button type="button" data-mode="hours">工数</button>
+                <button type="button" data-mode="rowpct">行の中の割合</button>
+              </div>
+            </div>
+          </div>
+          <p class="note">色が濃いほど工数が多い。「行の中の割合」にすると、行ごとの配分（例：PJ ごとの工程の割合）を比べられます。</p>
+          <div class="card-body scroll-x" id="body-cross"></div>
+        </section>
+      </div>
+
+      <!-- ⑤ 案件以外の割合 -->
+      <div class="grid" role="tabpanel" id="panel-share" aria-labelledby="tab-share" hidden>
+        <section class="card wide">
+          <div class="card-head">
+            <h2>区分の割合（作業担当者別）<span class="sub" id="sub-share"></span></h2>
+          </div>
+          <p class="note" id="note-share"></p>
+          <div id="legend-share"></div>
+          <div class="card-body" id="body-share"></div>
+        </section>
+        <section class="card wide">
+          <div class="card-head">
+            <h2>区分の推移<span class="sub" id="sub-share-trend"></span></h2>
+          </div>
+          <div class="card-body" id="body-share-trend"></div>
+        </section>
+      </div>
     </div>
-    <p class="hint">棒をクリックすると、その担当者・工程・PJ を絞り込みに加えます（もう一度クリックで外す）。PJ名・工程は上の「絞り込み」から複数選べます。</p>
   </div>
   <div class="tip" id="tip" role="tooltip"></div>
 
@@ -102,6 +183,7 @@
   <script src="sdk-loader.js"></script>
   <script src="config.js"></script>
   <script src="aggregate.js"></script>
+  <script src="ui.js"></script>
   <script src="main.js"></script>
 </body>
 </html>
