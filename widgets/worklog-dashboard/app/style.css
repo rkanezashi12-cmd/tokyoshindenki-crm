@@ -302,16 +302,6 @@ table.cross .q4 { background: var(--q4); }
 table.cross .total { color: var(--text-secondary); font-size: 12px; }
 table.cross tr.foot th, table.cross tr.foot td { border-top: 1px solid var(--border); padding-top: 4px; }
 
-/* ---- 期限超過 ---- */
-table.t.overdue td { vertical-align: top; white-space: nowrap; }
-table.t.overdue td:first-child, table.t.overdue td:last-child { white-space: normal; min-width: 140px; }
-table.t.overdue th { white-space: nowrap; }
-#body-overdue { max-height: 560px; }
-.badge { display: inline-block; border-radius: 999px; padding: 0 8px; font-size: 11px; white-space: nowrap; }
-.badge-closed { color: var(--critical); box-shadow: inset 0 0 0 1px var(--critical); }
-.linklike { border: 0; background: transparent; padding: 0; color: inherit; text-align: left; cursor: pointer; text-decoration: underline dotted; }
-.linklike:hover { color: var(--series-1); }
-
 /* ---- 区分の割合（100%の横棒） ---- */
 .share { display: grid; gap: 6px; }
 .srow { display: grid; grid-template-columns: minmax(80px, 160px) 1fr minmax(120px, auto); gap: 10px; align-items: center; }

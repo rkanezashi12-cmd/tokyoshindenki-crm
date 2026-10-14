@@ -43,7 +43,6 @@
       <div class="tabs" role="tablist" aria-label="分析">
         <button type="button" role="tab" data-tab="overview" id="tab-overview">概要・推移</button>
         <button type="button" role="tab" data-tab="input" id="tab-input">入力状況</button>
-        <button type="button" role="tab" data-tab="overdue" id="tab-overdue">期限超過</button>
         <button type="button" role="tab" data-tab="cross" id="tab-cross">クロス分析</button>
         <button type="button" role="tab" data-tab="share" id="tab-share">案件以外の割合</button>
       </div>
@@ -121,17 +120,6 @@
           <p class="note" id="note-input"></p>
           <div id="legend-input"></div>
           <div class="card-body scroll-x" id="body-input"></div>
-        </section>
-      </div>
-
-      <!-- ② 期限超過 -->
-      <div class="grid" role="tabpanel" id="panel-overdue" aria-labelledby="tab-overdue" hidden>
-        <section class="card wide">
-          <div class="card-head">
-            <h2>期限超過：ZPタスクの終了日より後に入った工数<span class="sub" id="sub-overdue"></span></h2>
-          </div>
-          <p class="note">Zoho Projects のタスクの終了日を過ぎてから工数が入っているタスクです。遅れ・手戻り・終了日の更新漏れのどれかの可能性があります。「ZPで完了」は Projects 上は完了済みなのに工数が入り続けているものです。</p>
-          <div class="card-body" id="body-overdue"></div>
         </section>
       </div>
 

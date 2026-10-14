@@ -85,8 +85,7 @@
   // ---- COQL ----
   function selectFields(cfg) {
     var f = cfg.fields;
-    return [f.hours, f.workDate, f.staff, f.projectId, f.projectName, f.jobNo, f.process,
-      f.task, f.subtask, f.taskEnd, f.taskStatus];
+    return [f.hours, f.workDate, f.staff, f.projectId, f.projectName, f.jobNo, f.process];
   }
   function isDate(s) {
     return /^\d{4}-\d{2}-\d{2}$/.test(s);
@@ -116,14 +115,12 @@
     return cats.project.label;
   }
 
-  // COQL の2階層参照は "Parent.Field" という平坦なキーで返る（スキル第10章）。ルックアップそのものは {name, id}
+  // COQL の2階層参照は "Parent.Field" という平坦なキーで返る（スキル第10章）
   function normalizeRow(raw, cfg) {
     var f = cfg.fields;
     var projectName = text(raw[f.projectName]);
     var projectId = text(raw[f.projectId]);
     var process = text(raw[f.process]) || UNKNOWN;
-    var task = raw[f.task] && typeof raw[f.task] === "object" ? raw[f.task] : null;
-    var status = text(raw[f.taskStatus]);
     return {
       id: String(raw.id),
       hours: Number(raw[f.hours]) || 0,
@@ -133,12 +130,6 @@
       projectName: projectName || UNKNOWN,
       jobNo: text(raw[f.jobNo]),
       process: process,
-      subtask: text(raw[f.subtask]),
-      taskId: task && task.id ? String(task.id) : "",
-      taskName: task ? text(task.name) : "",
-      taskEnd: text(raw[f.taskEnd]),
-      taskStatus: status,
-      taskClosed: (cfg.closedStatuses || []).indexOf(status) >= 0,
       category: categoryOf(projectName, process, cfg.categories)
     };
   }
@@ -329,34 +320,6 @@
     return { days: days, staff: staff };
   }
 
-  // ---- ② 期限超過（ZPタスクの終了日より後に入った工数） ----
-  function overdueTasks(rows) {
-    var map = {};
-    rows.forEach(function (r) {
-      if (!r.taskEnd || !r.date || r.date <= r.taskEnd) return;
-      var k = r.taskId || (r.project + "|" + r.process + "|" + r.subtask);
-      var t = map[k];
-      if (!t) {
-        t = map[k] = {
-          key: k, project: r.project, projectName: r.projectName, jobNo: r.jobNo, process: r.process,
-          subtask: r.subtask, end: r.taskEnd, status: r.taskStatus, closed: r.taskClosed,
-          hours: 0, count: 0, lastDate: r.date, staff: {}
-        };
-      }
-      t.hours += r.hours;
-      t.count += 1;
-      if (r.date > t.lastDate) t.lastDate = r.date;
-      t.staff[r.staff] = 1;
-    });
-    return Object.keys(map).map(function (k) {
-      var t = map[k];
-      t.hours = round1(t.hours);
-      t.daysOver = daysBetween(t.end, t.lastDate) - 1;
-      t.staff = Object.keys(t.staff).sort();
-      return t;
-    }).sort(function (a, b) { return b.hours - a.hours || b.daysOver - a.daysOver; });
-  }
-
   // ---- ④ クロス表 ----
   // 列は工数の多い順に maxCols まで、残りは OTHER
   function crossTab(rows, rowDim, colDim, maxCols) {
@@ -450,7 +413,6 @@
     topKeys: topKeys,
     stackedSeries: stackedSeries,
     dailyMatrix: dailyMatrix,
-    overdueTasks: overdueTasks,
     crossTab: crossTab,
     categoryShare: categoryShare,
     isDate: isDate
