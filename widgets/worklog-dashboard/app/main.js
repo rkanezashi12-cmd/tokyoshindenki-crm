@@ -313,13 +313,10 @@
     var m = A.dailyMatrix(staffOnly(state.rows), state.loadedFrom, state.loadedTo, CFG.standardHoursPerDay, localToday());
     var lacking = m.staff.reduce(function (a, s) { return a + s.missing + s.short; }, 0);
     var missing = m.staff.reduce(function (a, s) { return a + s.missing; }, 0);
-    var od = A.overdueTasks(rows);
-    var odHours = od.reduce(function (a, x) { return a + x.hours; }, 0);
     var items = [
       { k: "合計工数", v: fmtH(t.hours), u: "h", sub: "前期間比 " + U.changeText(A.change(t.hours, pt.hours)) },
       { k: "案件以外の割合", v: pct(indirect, t.hours).replace("%", ""), u: "%", sub: "受注前 " + pct(presales, t.hours), tab: "share" },
       { k: "入力が足りない日", v: String(lacking), u: "人日", sub: "うち未入力 " + missing + " 人日（8h未満を含む）", tab: "input" },
-      { k: "期限超過のタスク", v: String(od.length), u: "件", sub: "超過後の工数 " + fmtH(odHours) + "h", tab: "overdue" },
       { k: "作業担当者", v: String(t.staff), u: "人", sub: "入力のあった日 " + t.days + " 日" },
       { k: "PJ", v: String(t.projects), u: "件", sub: "前期間 " + pt.projects + " 件" }
     ];
@@ -477,36 +474,6 @@
     body.appendChild(el("table", { class: "heat input" }, [el("thead", null, [head]), el("tbody", null, rows)]));
   }
 
-  // ---- ② 期限超過 ----
-  function renderOverdue() {
-    var list = A.overdueTasks(filtered(state.rows));
-    var body = $("body-overdue");
-    body.innerHTML = "";
-    var hours = list.reduce(function (a, x) { return a + x.hours; }, 0);
-    $("sub-overdue").textContent = "（" + list.length + "件・超過後の工数 計 " + fmtH(hours) + "h）";
-    if (!list.length) {
-      body.appendChild(U.empty("この条件で終了日を過ぎた工数はありません"));
-      return;
-    }
-    body.appendChild(U.table([
-      { label: "PJ名", get: function (t) {
-        var b = el("button", { type: "button", class: "linklike", text: t.projectName, title: "この PJ で絞り込む" });
-        b.addEventListener("click", function () { toggleFilter("project", t.project, t.projectName); });
-        return b;
-      } },
-      { label: "JOB NO", get: function (t) { return t.jobNo; } },
-      { label: "工程 > サブタスク", get: function (t) { return t.process + (t.subtask ? " > " + t.subtask : ""); } },
-      { label: "ZPの状態", get: function (t) {
-        return t.closed ? el("span", { class: "badge badge-closed", text: "ZPで完了" }) : el("span", { class: "muted", text: t.status || "" });
-      } },
-      { label: "終了日", get: function (t) { return t.end; } },
-      { label: "最後の入力", get: function (t) { return t.lastDate; } },
-      { label: "超過日数", num: true, get: function (t) { return t.daysOver + " 日"; } },
-      { label: "超過後の工数", num: true, get: function (t) { return fmtH(t.hours) + " h"; } },
-      { label: "担当者", get: function (t) { return t.staff.join("、"); } }
-    ], list, "overdue"));
-  }
-
   // ---- ④ クロス分析 ----
   function heatLevel(v, max) {
     if (!v) return 0;
@@ -598,7 +565,7 @@
   }
 
   // ---- タブ ----
-  var TABS = ["overview", "input", "overdue", "cross", "share"];
+  var TABS = ["overview", "input", "cross", "share"];
   function tabName(t) { return $("tab-" + t).textContent; }
   function setTab(t) {
     state.tab = t;
@@ -652,7 +619,6 @@
       renderGroup("process");
       renderGroup("project");
     } else if (state.tab === "input") renderInput();
-    else if (state.tab === "overdue") renderOverdue();
     else if (state.tab === "cross") renderCross();
     else if (state.tab === "share") renderShare();
   }

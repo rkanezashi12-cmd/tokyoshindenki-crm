@@ -121,14 +121,6 @@ test("区分：その他工数入力は「案件以外」、【受注前】は�
   assert.equal(A.categoryOf("【八木 和明】その他工数入力用", "設計", CFG.categories), "案件以外");
 });
 
-test("タスクのルックアップ（{name, id}）と終了日・完了の判定", () => {
-  assert.equal(ROWS[1].taskId, "t2");
-  assert.equal(ROWS[1].taskEnd, "2026-09-15");
-  assert.equal(ROWS[1].taskClosed, true);
-  assert.equal(ROWS[0].taskClosed, false);
-  assert.equal(ROWS[4].taskId, "");
-});
-
 test("前の期間：直前の同じ日数。差と率（前が0なら率なし）", () => {
   assert.deepEqual(A.previousRange("2026-10-01", "2026-10-14"), { from: "2026-09-17", to: "2026-09-30" });
   assert.deepEqual(A.previousRange("2026-09-01", "2026-09-30"), { from: "2026-08-02", to: "2026-08-31" });
@@ -165,14 +157,6 @@ test("① 入力状況：平日と入力のあった土日、誰も入力しな�
   const a = m.staff.find((s) => s.name === "A"), b = m.staff.find((s) => s.name === "B");
   assert.deepEqual([a.workDays, a.missing, a.short, a.over, a.total, a.avg], [2, 0, 1, 0, 16, 8]);
   assert.deepEqual([b.workDays, b.missing, b.short, b.over, b.total], [2, 1, 0, 1, 17]);
-});
-
-test("② 期限超過：終了日より後の工数をタスクごとに。完了済みも分かる", () => {
-  const o = A.overdueTasks(ROWS);
-  assert.deepEqual(o.map((t) => [t.key, t.hours, t.count, t.end, t.lastDate, t.daysOver, t.closed, t.staff]), [
-    ["t2", 7.5, 2, "2026-09-15", "2026-09-22", 7, true, ["八木 和明", "望月 寛紀"]],
-    ["t4", 0, 1, "2026-09-30", "2026-10-01", 1, false, ["八木 和明"]]
-  ]);
 });
 
 test("④ クロス表：列は上位まで、残りは「その他」。行の合計と一致", () => {
