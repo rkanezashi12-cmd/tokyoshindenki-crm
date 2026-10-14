@@ -1,0 +1,22 @@
+{
+  "permissions": {
+    "deny": [
+      "mcp__Kawahara_CRM_temp",
+      "mcp__Zoho_CRM",
+      "mcp__ZohoCRM"
+    ]
+  },
+  "hooks": {
+    "PreToolUse": [
+      {
+        "matcher": "Bash|WebFetch|mcp__.*",
+        "hooks": [
+          {
+            "type": "command",
+            "command": "python3 \"$CLAUDE_PROJECT_DIR/.claude/hooks/zoho_guard.py\""
+          }
+        ]
+      }
+    ]
+  }
+}
