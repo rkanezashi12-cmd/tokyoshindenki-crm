@@ -85,7 +85,8 @@
   // ---- COQL ----
   function selectFields(cfg) {
     var f = cfg.fields;
-    return [f.hours, f.workDate, f.staff, f.projectId, f.projectName, f.jobNo, f.process];
+    return [f.hours, f.workDate, f.staff, f.projectId, f.projectName, f.jobNo, f.process,
+      f.task, f.subtask, f.taskEnd, f.taskStatus];
   }
   function isDate(s) {
     return /^\d{4}-\d{2}-\d{2}$/.test(s);
@@ -106,11 +107,23 @@
     if (typeof v === "object") return String(v.name || "");
     return String(v).trim();
   }
-  // COQL の2階層参照は "Parent.Field" という平坦なキーで返る（スキル第10章）
+  // 区分（案件／受注前／案件以外）。config.categories の上から順に当てはめる
+  function categoryOf(projectName, process, cats) {
+    var ind = cats.indirect, pre = cats.presales;
+    if ((ind.processes || []).indexOf(process) >= 0) return ind.label;
+    if ((ind.projectNameIncludes || []).some(function (w) { return projectName.indexOf(w) >= 0; })) return ind.label;
+    if ((pre.projectNamePrefixes || []).some(function (w) { return projectName.indexOf(w) === 0; })) return pre.label;
+    return cats.project.label;
+  }
+
+  // COQL の2階層参照は "Parent.Field" という平坦なキーで返る（スキル第10章）。ルックアップそのものは {name, id}
   function normalizeRow(raw, cfg) {
     var f = cfg.fields;
     var projectName = text(raw[f.projectName]);
     var projectId = text(raw[f.projectId]);
+    var process = text(raw[f.process]) || UNKNOWN;
+    var task = raw[f.task] && typeof raw[f.task] === "object" ? raw[f.task] : null;
+    var status = text(raw[f.taskStatus]);
     return {
       id: String(raw.id),
       hours: Number(raw[f.hours]) || 0,
@@ -119,7 +132,14 @@
       project: projectId || projectName || UNKNOWN,
       projectName: projectName || UNKNOWN,
       jobNo: text(raw[f.jobNo]),
-      process: text(raw[f.process]) || UNKNOWN
+      process: process,
+      subtask: text(raw[f.subtask]),
+      taskId: task && task.id ? String(task.id) : "",
+      taskName: task ? text(task.name) : "",
+      taskEnd: text(raw[f.taskEnd]),
+      taskStatus: status,
+      taskClosed: (cfg.closedStatuses || []).indexOf(status) >= 0,
+      category: categoryOf(projectName, process, cfg.categories)
     };
   }
 
@@ -224,6 +244,170 @@
     return out;
   }
 
+  // ---- 前の期間 ----
+  function daysBetween(from, to) {
+    return Math.round((parseDate(to) - parseDate(from)) / 86400000) + 1;
+  }
+  // 直前の同じ日数
+  function previousRange(from, to) {
+    var n = daysBetween(from, to);
+    return { from: addDays(from, -n), to: addDays(from, -1) };
+  }
+  function splitByRange(rows, from, to) {
+    return rows.filter(function (r) { return r.date >= from && r.date <= to; });
+  }
+  // 前の期間との差。前が 0 のときは率を出さない
+  function change(cur, prev) {
+    var diff = round1(cur - prev);
+    return { diff: diff, rate: prev > 0 ? Math.round(((cur - prev) / prev) * 1000) / 10 : null };
+  }
+
+  // ---- 色を割り当てる上位のキー（絞り込みで色が変わらないよう、期間内の全明細で決める） ----
+  function topKeys(rows, dim, n) {
+    return groupSum(rows, dim).slice(0, n).map(function (g) { return g.key; });
+  }
+
+  // ---- ③ 推移の積み上げ ----
+  // keys の順に積み、残りは OTHER にまとめる
+  var OTHER = "__other__";
+  function stackedSeries(rows, from, to, unit, weekStartsOn, dim, keys) {
+    var known = {};
+    keys.forEach(function (k) { known[k] = 1; });
+    var sums = {};
+    rows.forEach(function (r) {
+      if (!r.date) return;
+      var b = bucketStart(r.date, unit, weekStartsOn);
+      var k = known[r[dim]] ? r[dim] : OTHER;
+      sums[b] = sums[b] || {};
+      sums[b][k] = (sums[b][k] || 0) + r.hours;
+    });
+    return seriesByPeriod([], from, to, unit, weekStartsOn).map(function (b) {
+      var s = sums[b.key] || {};
+      var parts = keys.concat([OTHER]).map(function (k) { return { key: k, hours: round1(s[k] || 0) }; });
+      b.parts = parts;
+      b.hours = round1(parts.reduce(function (a, p) { return a + p.hours; }, 0));
+      return b;
+    });
+  }
+
+  // ---- ① 入力状況（担当者×日） ----
+  function dayOfWeek(date) {
+    return parseDate(date).getUTCDay();
+  }
+  // 列：平日すべて＋入力のあった土日。誰も入力していない平日は休日とみなして数えない。today 以降は数えない
+  function dailyMatrix(rows, from, to, standard, today) {
+    var byStaff = {}, dayTotal = {};
+    rows.forEach(function (r) {
+      if (!r.date || r.date < from || r.date > to) return;
+      byStaff[r.staff] = byStaff[r.staff] || {};
+      byStaff[r.staff][r.date] = (byStaff[r.staff][r.date] || 0) + r.hours;
+      dayTotal[r.date] = (dayTotal[r.date] || 0) + r.hours;
+    });
+    var days = [];
+    for (var d = from; d <= to; d = addDays(d, 1)) {
+      var dow = dayOfWeek(d), weekend = dow === 0 || dow === 6;
+      if (weekend && !dayTotal[d]) continue;
+      var kind = d >= today ? "today" : weekend ? "weekend" : dayTotal[d] ? "work" : "holiday";
+      days.push({ date: d, dow: dow, kind: kind });
+    }
+    var staff = Object.keys(byStaff).sort().map(function (name) {
+      var cells = byStaff[name], s = { name: name, cells: {}, total: 0, workDays: 0, missing: 0, short: 0, over: 0 };
+      days.forEach(function (day) {
+        var h = round1(cells[day.date] || 0);
+        s.cells[day.date] = h;
+        s.total += h;
+        if (day.kind !== "work") return;
+        s.workDays += 1;
+        if (h === 0) s.missing += 1;
+        else if (h < standard) s.short += 1;
+        else if (h > standard) s.over += 1;
+      });
+      s.total = round1(s.total);
+      s.avg = s.workDays ? round1(s.total / s.workDays) : 0;
+      return s;
+    });
+    return { days: days, staff: staff };
+  }
+
+  // ---- ② 期限超過（ZPタスクの終了日より後に入った工数） ----
+  function overdueTasks(rows) {
+    var map = {};
+    rows.forEach(function (r) {
+      if (!r.taskEnd || !r.date || r.date <= r.taskEnd) return;
+      var k = r.taskId || (r.project + "|" + r.process + "|" + r.subtask);
+      var t = map[k];
+      if (!t) {
+        t = map[k] = {
+          key: k, project: r.project, projectName: r.projectName, jobNo: r.jobNo, process: r.process,
+          subtask: r.subtask, end: r.taskEnd, status: r.taskStatus, closed: r.taskClosed,
+          hours: 0, count: 0, lastDate: r.date, staff: {}
+        };
+      }
+      t.hours += r.hours;
+      t.count += 1;
+      if (r.date > t.lastDate) t.lastDate = r.date;
+      t.staff[r.staff] = 1;
+    });
+    return Object.keys(map).map(function (k) {
+      var t = map[k];
+      t.hours = round1(t.hours);
+      t.daysOver = daysBetween(t.end, t.lastDate) - 1;
+      t.staff = Object.keys(t.staff).sort();
+      return t;
+    }).sort(function (a, b) { return b.hours - a.hours || b.daysOver - a.daysOver; });
+  }
+
+  // ---- ④ クロス表 ----
+  // 列は工数の多い順に maxCols まで、残りは OTHER
+  function crossTab(rows, rowDim, colDim, maxCols) {
+    var cols = groupSum(rows, colDim);
+    var shown = cols.slice(0, maxCols), rest = cols.slice(maxCols);
+    var colKey = {};
+    shown.forEach(function (c) { colKey[c.key] = c.key; });
+    var outCols = shown.map(function (c) { return { key: c.key, label: c.label, hours: c.hours }; });
+    if (rest.length) {
+      outCols.push({ key: OTHER, label: "その他（" + rest.length + "件）", hours: round1(rest.reduce(function (a, c) { return a + c.hours; }, 0)) });
+    }
+    var outRows = groupSum(rows, rowDim).map(function (g) {
+      return { key: g.key, label: g.label, jobNo: g.jobNo, hours: g.hours, cells: {} };
+    });
+    var idx = {};
+    outRows.forEach(function (r) { idx[r.key] = r; });
+    rows.forEach(function (r) {
+      var c = colKey[r[colDim]] !== undefined ? r[colDim] : OTHER;
+      var row = idx[r[rowDim]];
+      row.cells[c] = (row.cells[c] || 0) + r.hours;
+    });
+    outRows.forEach(function (r) {
+      Object.keys(r.cells).forEach(function (k) { r.cells[k] = round1(r.cells[k]); });
+    });
+    return { rows: outRows, cols: outCols, hours: round1(outRows.reduce(function (a, r) { return a + r.hours; }, 0)) };
+  }
+
+  // ---- ⑤ 区分の割合（担当者ごと＋全体） ----
+  function categoryShare(rows, labels) {
+    function blank(name) {
+      var o = { name: name, hours: 0, parts: {} };
+      labels.forEach(function (l) { o.parts[l] = 0; });
+      return o;
+    }
+    var all = blank("全体"), by = {};
+    rows.forEach(function (r) {
+      var s = by[r.staff] = by[r.staff] || blank(r.staff);
+      [all, s].forEach(function (o) {
+        o.hours += r.hours;
+        o.parts[r.category] = (o.parts[r.category] || 0) + r.hours;
+      });
+    });
+    function fin(o) {
+      o.hours = round1(o.hours);
+      Object.keys(o.parts).forEach(function (k) { o.parts[k] = round1(o.parts[k]); });
+      return o;
+    }
+    var staff = Object.keys(by).map(function (k) { return fin(by[k]); });
+    return { all: fin(all), staff: staff };
+  }
+
   function totals(rows) {
     var staff = {}, project = {}, days = {}, h = 0;
     rows.forEach(function (r) {
@@ -257,6 +441,18 @@
     groupSum: groupSum,
     seriesByPeriod: seriesByPeriod,
     totals: totals,
+    OTHER: OTHER,
+    categoryOf: categoryOf,
+    daysBetween: daysBetween,
+    previousRange: previousRange,
+    splitByRange: splitByRange,
+    change: change,
+    topKeys: topKeys,
+    stackedSeries: stackedSeries,
+    dailyMatrix: dailyMatrix,
+    overdueTasks: overdueTasks,
+    crossTab: crossTab,
+    categoryShare: categoryShare,
     isDate: isDate
   };
   root.WLD_AGG = API;
