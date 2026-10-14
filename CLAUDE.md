@@ -63,9 +63,16 @@ API でつなぎ、機能を追加するためのリポジトリ。
 | `.claude/settings.json`・`.claude/hooks/zoho_guard.py` | Zoho の MCP コネクタと Zoho への直接の呼び出しを止める |
 | `tests/` | 守りのテスト（Zoho には接続しない）。`python3 -m unittest -v` |
 | `docs/setup.md` | 接続の手順（Self Client・スコープ・クラウド環境の設定・組織の固定） |
+| `widgets/worklog-dashboard/` | 工数ダッシュボード（ホーム画面用ウィジェット）。CRM の API 名は `app/config.js` だけ。`docs/worklog-dashboard/README.md` |
+| `scripts/package_widget.py` | ウィジェットをアップロード用の ZIP（`dist/`）にまとめる |
 
 - 認証情報：環境変数 `TSD_ZOHO_CLIENT_ID`・`TSD_ZOHO_CLIENT_SECRET`・`TSD_ZOHO_REFRESH_TOKEN`（手元では `.env`）
 - `tsd_crm` は呼ぶたびに最初に `GET /crm/v8/org` で組織を照合する。組織を固定する前は `org` 以外を拒否する。
   固定（`pin --yes`）は**ユーザーが東京新電機様の組織だと了承してから**
 - 書き込みは `write ... --allow-write`（ユーザーの指示があるときだけ）。DELETE は無い
 - 機能が決まったら、ここに書き足す
+
+### 機能
+
+- **工数ダッシュボード**：工数入力（`WorkLogs`）の工数明細（サブフォーム `WorkLogItems`）を、作業担当者別・PJ名別・工程別（ZPタスクのタスク名）・期間別（日／週／月）に集計してホーム画面に出す。
+  CRM は読み取りだけ。既存のワークフロー・関数が動いているため、API 名は変えない

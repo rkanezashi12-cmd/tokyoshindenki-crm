@@ -1,0 +1,98 @@
+<!doctype html>
+<html lang="ja">
+<head>
+  <meta charset="utf-8">
+  <meta name="viewport" content="width=device-width, initial-scale=1">
+  <title>工数ダッシュボード</title>
+  <link rel="stylesheet" href="style.css">
+</head>
+<body>
+  <div class="wrap">
+    <div class="top">
+      <h1>工数ダッシュボード</h1>
+      <div class="controls">
+        <div class="seg" id="presets" role="group" aria-label="期間">
+          <button type="button" data-preset="thisMonth">今月</button>
+          <button type="button" data-preset="lastMonth">先月</button>
+          <button type="button" data-preset="last3Months">直近3か月</button>
+          <button type="button" data-preset="fiscalYear">今年度</button>
+        </div>
+        <span class="dates">
+          <input type="date" id="from" aria-label="開始日">
+          <span>〜</span>
+          <input type="date" id="to" aria-label="終了日">
+        </span>
+        <button type="button" class="btn" id="reload">更新</button>
+        <span class="status" id="status" aria-live="polite"></span>
+      </div>
+    </div>
+
+    <div id="notice"></div>
+    <div class="chips" id="chips"></div>
+
+    <div class="kpis" id="kpis"></div>
+
+    <div class="grid" id="main">
+      <section class="card wide" id="card-period">
+        <div class="card-head">
+          <h2>期間別工数<span class="sub" id="sub-period"></span></h2>
+          <div class="card-tools">
+            <div class="seg" id="units" role="group" aria-label="単位">
+              <button type="button" data-unit="day">日</button>
+              <button type="button" data-unit="week">週</button>
+              <button type="button" data-unit="month">月</button>
+            </div>
+            <div class="seg" data-view-for="period" role="group" aria-label="表示">
+              <button type="button" data-view="chart">グラフ</button>
+              <button type="button" data-view="table">表</button>
+            </div>
+          </div>
+        </div>
+        <div class="card-body" id="body-period"></div>
+      </section>
+
+      <section class="card" id="card-staff">
+        <div class="card-head">
+          <h2>作業担当者別工数<span class="sub" id="sub-staff"></span></h2>
+          <div class="seg" data-view-for="staff" role="group" aria-label="表示">
+            <button type="button" data-view="chart">グラフ</button>
+            <button type="button" data-view="table">表</button>
+          </div>
+        </div>
+        <div class="card-body" id="body-staff"></div>
+      </section>
+
+      <section class="card" id="card-process">
+        <div class="card-head">
+          <h2>工程別工数<span class="sub" id="sub-process"></span></h2>
+          <div class="seg" data-view-for="process" role="group" aria-label="表示">
+            <button type="button" data-view="chart">グラフ</button>
+            <button type="button" data-view="table">表</button>
+          </div>
+        </div>
+        <div class="card-body" id="body-process"></div>
+      </section>
+
+      <section class="card" id="card-project">
+        <div class="card-head">
+          <h2>PJ名別工数<span class="sub" id="sub-project"></span></h2>
+          <div class="seg" data-view-for="project" role="group" aria-label="表示">
+            <button type="button" data-view="chart">グラフ</button>
+            <button type="button" data-view="table">表</button>
+          </div>
+        </div>
+        <div class="card-body" id="body-project"></div>
+      </section>
+    </div>
+    <p class="hint">棒をクリックすると、その担当者・工程・PJ で他のグラフを絞り込みます（もう一度クリックで解除）。</p>
+  </div>
+  <div class="tip" id="tip" role="tooltip"></div>
+
+  <!-- Zoho CRM ウィジェット JS SDK：同梱したもの → 無ければ sdk-loader.js が正しい URL から読む -->
+  <script src="ZohoEmbededAppSDK.min.js"></script>
+  <script src="sdk-loader.js"></script>
+  <script src="config.js"></script>
+  <script src="aggregate.js"></script>
+  <script src="main.js"></script>
+</body>
+</html>
