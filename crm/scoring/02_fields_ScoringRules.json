@@ -1,0 +1,15 @@
+{
+  "fields": [
+    { "field_label": "スコアリング対象", "api_name": "Scoring_Target", "data_type": "picklist", "required": true,
+      "pick_list_values": [{ "display_value": "閲覧したURLが", "actual_value": "閲覧したURLが" }] },
+    { "field_label": "値", "api_name": "Match_Value", "data_type": "text", "length": 255, "required": true },
+    { "field_label": "条件", "api_name": "Match_Condition", "data_type": "picklist", "required": true,
+      "pick_list_values": [
+        { "display_value": "を含むとき", "actual_value": "を含むとき" },
+        { "display_value": "を含まないとき", "actual_value": "を含まないとき" },
+        { "display_value": "と等しい", "actual_value": "と等しい" },
+        { "display_value": "と等しくない", "actual_value": "と等しくない" }
+      ] },
+    { "field_label": "点数", "api_name": "Points", "data_type": "integer", "required": true }
+  ]
+}
