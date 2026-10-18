@@ -16,7 +16,7 @@ F_DECAY_DATE = "Score_Decay_Date"; // スコア減衰日（日付）
 F_HAS_SCORE = "Has_Score"; // スコア保有（チェックボックス）
 DECAY_DAYS = 30; // この日数訪問がなければ減衰。テストで0に変えたら必ず30に戻す
 DECAY_RATE = 0.75; // 25%減衰 = 0.75倍
-DRY_RUN = true; // ★true=判定ログのみ / false=本実行。導入時は true で確かめてから false へ
+DRY_RUN = false; // ★true=判定ログのみ / false=本実行（2026-10-18 に本稼働。CRM の関数と合わせてある）
 // =========================================================
 info "===== decay_crm_visit_score START (DRY_RUN=" + DRY_RUN + ") =====";
 today = zoho.currentdate;
