@@ -28,10 +28,10 @@ F_TARGET = "Scoring_Target"; // スコアリング対象（選択リスト）
 F_VALUE = "Match_Value"; // 値（1行）
 F_COND = "Match_Condition"; // 条件（選択リスト）
 F_POINT = "Points"; // 点数（整数）
-CUTOFF = "2026-10-18 19:30:00"; // ★稼働開始日時（yyyy-MM-dd HH:mm:ss・組織の時刻）。これより後に作られた訪問から加算する。テストで過去に変えたら必ず戻す
+CUTOFF = "2026-10-18 19:55:00"; // ★稼働開始日時（yyyy-MM-dd HH:mm:ss・組織の時刻）。これより後に作られた訪問から加算する。テストで過去に変えたら必ず戻す
 // --- ホットリード通知 ---
 NOTIFY_THRESHOLD = 100; // この点数以上に上がったら通知する
-TEST_MAIL = true; // ★true = テスト用の送り先だけに送る。本稼働で false にする
+TEST_MAIL = false; // ★true = テスト用の送り先だけに送る。本稼働で false にする
 MAIL_TO_TEST = "r-kanezashi@funaisoken.co.jp";
 MAIL_TO_PROD = "k-watanabe@tokyoshindenki.co.jp,h-mochizuki@tokyoshindenki.co.jp,k-eto@tokyoshindenki.co.jp,h-asai@tokyoshindenki.co.jp,m-watanabe@tokyoshindenki.co.jp";
 EXCLUDE_INTERNAL = true; // ★true = 下のドメインのメールアドレスの見込み客・担当者には通知しない。社内のアドレスでテストするときだけ false にする

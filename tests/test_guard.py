@@ -149,6 +149,64 @@ class HostAndWriteGuardTest(unittest.TestCase):
             self.assertEqual(json.loads(path.read_text())["expected_org"]["id"], "111")
 
 
+class FunctionUpdateTest(unittest.TestCase):
+    FN = {"id": "555", "api_name": "add_x", "name": "加算", "category": "Automation",
+          "runtime": "Deluge 1.0", "description": None}
+    CODE = "void automation.add_x(Int contactId)\n{\ninfo 1;\n}\n"
+
+    class Fake(FakeZoho):
+        def __init__(self, fn):
+            super().__init__()
+            self.fn = fn
+            self.sent = []
+
+        def __call__(self, method, url, headers, body):
+            if "/settings/functions/" in url:
+                self.calls.append((method, url))
+                if method == "GET":
+                    return 200, json.dumps({"functions": [self.fn]}).encode()
+                self.sent.append((method, url, headers, body))
+                return 200, json.dumps({"functions": [{"status": "success"}]}).encode()
+            return super().__call__(method, url, headers, body)
+
+    def test_needs_allow_write(self):
+        fake = self.Fake(self.FN)
+        with self.assertRaises(GuardError):
+            make_client(fake).update_function("555", self.CODE)
+        self.assertEqual(fake.api_calls(), [])
+
+    def test_sends_multipart_put_without_api_name(self):
+        fake = self.Fake(self.FN)
+        with mock.patch.object(tc, "WRITE_LOG", Path(tempfile.mkdtemp()) / "w.log"):
+            make_client(fake, allow_write=True).update_function("555", self.CODE)
+        self.assertEqual(len(fake.sent), 1)
+        method, url, headers, body = fake.sent[0]
+        self.assertEqual(method, "PUT")
+        self.assertTrue(url.endswith("/crm/v8/settings/functions/555"))
+        self.assertTrue(headers["Content-Type"].startswith("multipart/form-data; boundary="))
+        text = body.decode()
+        self.assertIn('name="metadata"', text)
+        self.assertIn('name="code"; filename="add_x.ds"', text)
+        self.assertIn(self.CODE, text)
+        self.assertNotIn("api_name", text)
+
+    def test_refuses_code_for_another_function(self):
+        fake = self.Fake(self.FN)
+        for code in ("void automation.other_fn(Int id)\n{\n}", "void schedule.add_x()\n{\n}", "info 1;"):
+            with self.subTest(code=code), self.assertRaises(GuardError):
+                make_client(fake, allow_write=True).update_function("555", code)
+        self.assertEqual(fake.sent, [])
+
+    def test_refuses_other_org_and_bad_id(self):
+        fake = self.Fake(self.FN)
+        fake.org = OTHER_ORG
+        with self.assertRaises(GuardError):
+            make_client(fake, allow_write=True).update_function("555", self.CODE)
+        with self.assertRaises(GuardError):
+            make_client(self.Fake(self.FN), allow_write=True).update_function("../modules", self.CODE)
+        self.assertEqual(fake.sent, [])
+
+
 class HookTest(unittest.TestCase):
     def run_hook(self, tool, tool_input):
         res = subprocess.run([sys.executable, str(ROOT / ".claude" / "hooks" / "zoho_guard.py")],

@@ -6,6 +6,8 @@
   python -m tsd_crm count Machines
   python -m tsd_crm coql "SELECT Name FROM Machines WHERE id is not null LIMIT 5"
   python -m tsd_crm write PUT /crm/v8/Machines/{id} --body '{"data":[{...}],"trigger":[]}' --allow-write
+  python -m tsd_crm function-update {id} crm/scoring/functions/x.dg [--allow-write]
+                                              関数のコードを更新（--allow-write が無ければ送る内容を見せるだけ）
   python -m tsd_crm exchange-code             認可コード → リフレッシュトークン（.env に保存。手元の端末で使う）
 """
 
@@ -20,7 +22,7 @@ from pathlib import Path
 
 from .client import (
     CONFIG_PATH, ENV_FILE, ORG_KEYS, CRMClient, GuardError, ZohoAPIError,
-    check_api_domain, load_config, parse_json, pin_org, read_env_file, urllib_transport,
+    check_api_domain, check_function_decl, load_config, parse_json, pin_org, read_env_file, urllib_transport,
 )
 
 ORG_SHOW = ORG_KEYS + ("zgid", "time_zone", "currency")
@@ -112,6 +114,10 @@ def main(argv=None):
     p.add_argument("--body", required=True, help="JSON 文字列または JSON ファイルのパス")
     p.add_argument("--param", action="append", metavar="KEY=VALUE")
     p.add_argument("--allow-write", action="store_true")
+    p = sub.add_parser("function-update", help="関数のコードを更新する（ユーザーの指示があるときだけ）")
+    p.add_argument("function_id")
+    p.add_argument("code_file")
+    p.add_argument("--allow-write", action="store_true")
     sub.add_parser("exchange-code", help="認可コードをリフレッシュトークンに交換して .env に保存する")
     args = parser.parse_args(argv)
 
@@ -138,6 +144,17 @@ def main(argv=None):
             dump(client.coql(args.query))
         elif args.cmd == "write":
             dump(client.write(args.method, args.path, load_body(args.body), parse_params(args.param)))
+        elif args.cmd == "function-update":
+            code = Path(args.code_file).read_text(encoding="utf-8")
+            if not args.allow_write:
+                # 送らずに、更新先の関数と宣言が合うかだけ確かめて見せる
+                current = client.get(f"/crm/{cfg['api_version']}/settings/functions/{args.function_id}")["functions"][0]
+                check_function_decl(code, current)
+                dump({k: current.get(k) for k in ("id", "api_name", "name", "category", "modified_time")})
+                print(f"\n送る内容：上の関数のコードを {args.code_file}（{len(code.splitlines())} 行）に置き換える。"
+                      "送るときは --allow-write を付ける", file=sys.stderr)
+                return
+            dump(client.update_function(args.function_id, code))
     except GuardError as e:
         print(f"中断：{e}", file=sys.stderr)
         sys.exit(2)
