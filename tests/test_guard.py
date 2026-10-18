@@ -189,6 +189,7 @@ class FunctionUpdateTest(unittest.TestCase):
         self.assertIn('name="code"; filename="add_x.ds"', text)
         self.assertIn(self.CODE, text)
         self.assertNotIn("api_name", text)
+        self.assertNotIn('"name"', text)  # 日本語の表示名は送らない
 
     def test_refuses_code_for_another_function(self):
         fake = self.Fake(self.FN)

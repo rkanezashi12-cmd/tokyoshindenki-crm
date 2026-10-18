@@ -29,6 +29,7 @@ WRITE_LOG = ROOT / "logs" / "writes.log"
 ORG_KEYS = ("id", "domain_name", "company_name")
 WRITE_METHODS = ("POST", "PUT", "PATCH")
 MODULE_RE = re.compile(r"^[A-Za-z][A-Za-z0-9_]*$")
+FUNCTION_NAME_RE = re.compile(r"^[A-Za-z][A-Za-z0-9 _-]*$")
 FUNCTION_DECL_RE = re.compile(r"^\s*\w+\s+([A-Za-z_]+)\.([A-Za-z0-9_]+)\s*\(")
 
 
@@ -266,8 +267,11 @@ class CRMClient:
         current = self.get(path)["functions"][0]
         check_function_decl(code, current)
         # api_name は送らない（更新できず NOT_ALLOWED になる。スキル第8章）
-        meta = {"functions": [{k: current[k] for k in ("name", "runtime", "category", "description")
-                               if current.get(k) is not None}]}
+        meta = {k: current[k] for k in ("name", "runtime", "category", "description") if current.get(k) is not None}
+        # name は英数字・空白・_・- だけ受け付ける。画面で付けた日本語の表示名は送らない（送ると INVALID_DATA）
+        if not FUNCTION_NAME_RE.match(str(meta.get("name", ""))):
+            meta.pop("name", None)
+        meta = {"functions": [meta]}
         raw, content_type = build_function_multipart(meta, code, f"{current['api_name']}.ds")
         try:
             status, data = self._send("PUT", path, raw=raw, content_type=content_type)
