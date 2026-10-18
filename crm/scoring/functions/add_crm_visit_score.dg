@@ -258,10 +258,10 @@ if(TEST_MAIL == true)
 	subj = "【テスト】" + subj;
 }
 info "[add] 通知 送信直前 contactId=" + contactId + " " + currentScore + "→" + newScore + " TEST_MAIL=" + TEST_MAIL;
-// ★from はリテラル必須。ワークフローから動くため、操作した人に依らない zoho.adminuserid を使う
+// ★from は zoho.loginuserid か、確認済みのメールアドレスだけ（zoho.adminuserid は保存エラーになる）
 sendmail
 [
-	from :zoho.adminuserid
+	from :zoho.loginuserid
 	to :MAIL_TO
 	subject :subj
 	message :body
