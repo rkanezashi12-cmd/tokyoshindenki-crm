@@ -10,6 +10,10 @@ void automation.add_crm_visit_score(Int contactId)
 　CUTOFF より前に作成された訪問は対象外（過去閲覧はスコアしない）
 【元】船井総研「CRM訪問スコアリング機能 実装仕様書」（2026-07-21 版1.0）第4章
 　東京新電機様向けに「顧客タイプ区分名」「属性区分」による絞り込みを外した（すべてのルールが全員に効く）
+【ホットリード通知】スコアが NOTIFY_THRESHOLD 未満から以上に上がったとき（減衰で下がって再び上がったときも）、
+　見込み客・担当者の詳細とレコードURL、今回加算したスコアリングルール（レコードURL付き）をメールで送り、
+　「ホットリードになった日」に今日の日付を入れる。メールはスコアの更新が成功した後にだけ送る
+　（更新に失敗するとウォーターマークが進まず、次の発火で計算し直されるため二重送信にならない）
 */
 // ===== 設定エリア（API 名は docs/scoring/README.md と同じ）=====
 VISITS = "Visits"; // 訪問モジュール
@@ -25,6 +29,14 @@ F_VALUE = "Match_Value"; // 値（1行）
 F_COND = "Match_Condition"; // 条件（選択リスト）
 F_POINT = "Points"; // 点数（整数）
 CUTOFF = "2026-10-18 00:00:00"; // ★稼働開始日時（yyyy-MM-dd HH:mm:ss・組織の時刻）。テストで過去に変えたら必ず戻す
+// --- ホットリード通知 ---
+NOTIFY_THRESHOLD = 100; // この点数以上に上がったら通知する
+MAIL_TO = "k-watanabe@tokyoshindenki.co.jp,h-mochizuki@tokyoshindenki.co.jp,k-eto@tokyoshindenki.co.jp,h-asai@tokyoshindenki.co.jp,m-watanabe@tokyoshindenki.co.jp";
+F_HOT_DATE = "field19"; // ホットリードになった日（日付・既存項目）
+SET_HOT_DATE = true; // true = 通知のたびに今日の日付で上書きする
+CRM_WEB = "https://crm.zoho.jp/crm/org90001386318/tab/"; // レコードURLの前半（組織のドメイン名）
+CONTACTS_TAB = "Contacts"; // 見込み客・担当者の URL 上の名前
+SCORING_TAB = "CustomModule19"; // スコアリングルールの URL 上の名前（GET /settings/modules の module_name）
 // =========================================================
 info "===== add_crm_visit_score START contactId=" + contactId + " =====";
 // STEP1: 見込み客・担当者を取得し、ウォーターマークを得る
@@ -67,6 +79,8 @@ if(applicableRules.size() == 0)
 }
 // STEP3: ウォーターマークより後に作成された訪問だけを差分加算
 delta = 0;
+ruleHits = Map(); // ルールの id → 今回の一致回数（通知用）
+hitRows = list(); // 一致した閲覧の明細（通知用）
 maxCreatedRaw = "";
 maxCreatedDt = watermarkDt;
 for each vPage in {1, 2, 3, 4, 5, 6, 7, 8, 9, 10}
@@ -116,6 +130,9 @@ for each vPage in {1, 2, 3, 4, 5, 6, 7, 8, 9, 10}
 					{
 						delta = delta + point;
 						info "[add] 加算 +" + point + " url=" + actionUrl;
+						rid = rule.get("id").toString();
+						ruleHits.put(rid, ifnull(ruleHits.get(rid), 0).toString().toLong() + 1);
+						hitRows.add("<tr><td>" + createdRaw.subString(0, 16).replaceAll("T", " ") + "</td><td>" + actionUrl + "</td><td align='right'>+" + point + "</td></tr>");
 					}
 				}
 			}
@@ -139,8 +156,18 @@ if(delta == 0 && maxCreatedRaw == "")
 }
 currentScore = ifnull(contacts.get(SCORE_FIELD), 0).toString().toLong();
 newScore = currentScore + delta;
+// 今回の加算でしきい値をまたいだか（減衰で下がって再び上がったときも通知する）
+crossed = false;
+if(currentScore < NOTIFY_THRESHOLD && newScore >= NOTIFY_THRESHOLD)
+{
+	crossed = true;
+}
 upd = Map();
 upd.put(SCORE_FIELD, newScore);
+if(crossed == true && SET_HOT_DATE == true)
+{
+	upd.put(F_HOT_DATE, zoho.currentdate.toString("yyyy-MM-dd"));
+}
 if(newScore > 0)
 {
 	upd.put(F_HAS_SCORE, true); // 減衰関数の検索対象フラグ
@@ -152,13 +179,85 @@ if(maxCreatedRaw != "")
 info "[add] STEP4 更新 " + currentScore + "→" + newScore;
 res = zoho.crm.updateRecord(CONTACTS, contactId, upd);
 info "[add] update生レスポンス=" + res;
-if(res.containsKey("id"))
-{
-	info "===== SUCCESS =====";
-}
-else
+if(res.containsKey("id") == false)
 {
 	info "[add] ERROR: 更新失敗 res=" + res;
+	return;
 }
+info "===== SUCCESS =====";
+// STEP5: ホットリード通知（しきい値をまたいだときだけ）
+if(crossed == false)
+{
+	return;
+}
+contactUrl = CRM_WEB + CONTACTS_TAB + "/" + contactId;
+fullName = ifnull(contacts.get("Full_Name"), "").toString();
+accountName = "";
+if(contacts.get("Account_Name") != null)
+{
+	accountName = ifnull(contacts.get("Account_Name").get("name"), "").toString();
+}
+ownerName = "";
+if(contacts.get("Owner") != null)
+{
+	ownerName = ifnull(contacts.get("Owner").get("name"), "").toString();
+}
+lastVisit = ifnull(contacts.get("Last_Visited_Time"), "").toString();
+if(lastVisit.length() >= 16)
+{
+	lastVisit = lastVisit.subString(0, 16).replaceAll("T", " ");
+}
+// 見込み客・担当者の詳細
+info1 = "<table border='1' cellpadding='6' cellspacing='0' style='border-collapse:collapse;font-size:13px;'>";
+info1 = info1 + "<tr><th style='background:#f2f2f2;' align='left'>氏名</th><td><a href='" + contactUrl + "'>" + fullName + "</a></td></tr>";
+info1 = info1 + "<tr><th style='background:#f2f2f2;' align='left'>企業名</th><td>" + accountName + "</td></tr>";
+info1 = info1 + "<tr><th style='background:#f2f2f2;' align='left'>部署名</th><td>" + ifnull(contacts.get("Busyo"), "") + "</td></tr>";
+info1 = info1 + "<tr><th style='background:#f2f2f2;' align='left'>職位</th><td>" + ifnull(contacts.get("Title"), "") + "</td></tr>";
+info1 = info1 + "<tr><th style='background:#f2f2f2;' align='left'>メール</th><td>" + ifnull(contacts.get("Email"), "") + "</td></tr>";
+info1 = info1 + "<tr><th style='background:#f2f2f2;' align='left'>電話番号</th><td>" + ifnull(contacts.get("Phone"), "") + "</td></tr>";
+info1 = info1 + "<tr><th style='background:#f2f2f2;' align='left'>携帯電話</th><td>" + ifnull(contacts.get("Mobile"), "") + "</td></tr>";
+info1 = info1 + "<tr><th style='background:#f2f2f2;' align='left'>東京新電機の担当者</th><td>" + ownerName + "</td></tr>";
+info1 = info1 + "<tr><th style='background:#f2f2f2;' align='left'>CRM訪問スコア</th><td>" + currentScore + " → <b>" + newScore + "</b></td></tr>";
+info1 = info1 + "<tr><th style='background:#f2f2f2;' align='left'>最後の訪問日時</th><td>" + lastVisit + "</td></tr>";
+info1 = info1 + "<tr><th style='background:#f2f2f2;' align='left'>レコードURL</th><td><a href='" + contactUrl + "'>" + contactUrl + "</a></td></tr>";
+info1 = info1 + "</table>";
+// 今回加算したスコアリングルール
+info2 = "<table border='1' cellpadding='6' cellspacing='0' style='border-collapse:collapse;font-size:13px;'>";
+info2 = info2 + "<tr style='background:#f2f2f2;'><th>説明</th><th>条件</th><th>点数</th><th>一致回数</th><th>加算</th><th>レコードURL</th></tr>";
+for each rule in applicableRules
+{
+	rid = rule.get("id").toString();
+	if(ruleHits.containsKey(rid) == false) { continue; }
+	cnt = ruleHits.get(rid).toString().toLong();
+	point = ifnull(rule.get(F_POINT), 0).toString().toLong();
+	ruleUrl = CRM_WEB + SCORING_TAB + "/" + rid;
+	info2 = info2 + "<tr><td>" + ifnull(rule.get("Name"), "") + "</td><td>" + ifnull(rule.get(F_TARGET), "") + " " + ifnull(rule.get(F_VALUE), "") + " " + ifnull(rule.get(F_COND), "") + "</td><td align='right'>" + point + "</td><td align='right'>" + cnt + "</td><td align='right'>+" + (point * cnt) + "</td><td><a href='" + ruleUrl + "'>" + ruleUrl + "</a></td></tr>";
+}
+info2 = info2 + "</table>";
+// 一致した閲覧の明細
+info3 = "<table border='1' cellpadding='6' cellspacing='0' style='border-collapse:collapse;font-size:13px;'>";
+info3 = info3 + "<tr style='background:#f2f2f2;'><th>訪問の記録日時</th><th>閲覧したURL</th><th>加算</th></tr>";
+for each r in hitRows
+{
+	info3 = info3 + r;
+}
+info3 = info3 + "</table>";
+subj = "【ホットリード】" + accountName + " " + fullName + " 様（CRM訪問スコア " + newScore + "点）";
+body = "<p>下記の見込み客・担当者の CRM訪問スコアが " + NOTIFY_THRESHOLD + "点以上になりました。</p>";
+body = body + "<p><b>見込み客・担当者</b></p>" + info1;
+body = body + "<p><b>今回加算したスコアリングルール</b></p>" + info2;
+body = body + "<p><b>一致した閲覧</b></p>" + info3;
+body = body + "<p style='font-size:12px;color:#555;'>今回の加算分だけを載せています（それより前の点数は、これまでの訪問で加算された分です）。</p>";
+body = body + "<p style='color:#888;font-size:11px;'>本メールは CRM訪問スコアリング（add_crm_visit_score）による自動送信です。</p>";
+info "[add] 通知 送信直前 contactId=" + contactId + " " + currentScore + "→" + newScore;
+// ★from はリテラル必須。ワークフローから動くため、操作した人に依らない zoho.adminuserid を使う
+sendmail
+[
+	from :zoho.adminuserid
+	to :MAIL_TO
+	subject :subj
+	message :body
+]
+info "[add] 通知 sendmail 完了（例外なし）";
 return;
 }
