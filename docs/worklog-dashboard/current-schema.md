@@ -103,10 +103,13 @@ from WorkLogItems where id is not null limit 200
 
 ## 5. 今回読めなかったもの
 
-接続の認可（スコープ）に含まれていないため、次は `OAUTH_SCOPE_MISMATCH` で読めなかった：
+接続の認可（スコープ）に含まれていないため、次は `OAUTH_SCOPE_MISMATCH` で読めなかった（2026-10-18 にスコープを足したトークンで再確認）：
 
-- レイアウト（`/settings/layouts`）
-- ワークフロー（`/settings/automation/workflow_rules`）
 - タブグループ（`/settings/tab_groups`）
+- カスタムビュー（`/settings/custom_views`）
+- 役職（`/settings/roles`）
 
-ダッシュボードの作成自体には不要（ウィジェットは閲覧者の権限でレコードを読む）。既存のワークフローを確認したい場合は、スコープを足してリフレッシュトークンを取り直す。
+2026-10-18 から読めるようになったもの：レイアウト（`/settings/layouts`）・ワークフロー（`/settings/automation/workflow_rules`、個別の条件も）・
+関数（`/settings/functions`）・関連リスト・権限（`/settings/profiles`）・ユーザー。
+
+ダッシュボードの作成自体には不要（ウィジェットは閲覧者の権限でレコードを読む）。
