@@ -16,6 +16,17 @@
       jobNo: "ZP_Task.JOB_NO",                 // ZPタスク > JOB NO（表示だけ）
       process: "ZP_Task.Task_Name"             // ZPタスク > タスク名     … 工程別
     },
+    // 入力状況：1日の基準時間（h）
+    standardHoursPerDay: 8,
+    // 案件以外の割合：区分の決め方（上から順に当てはめ、どれにも当たらなければ「案件」）
+    categories: {
+      indirect: { label: "案件以外", processes: ["その他工数入力"], projectNameIncludes: ["その他工数入力用"] },
+      presales: { label: "受注前", projectNamePrefixes: ["【受注前】"] },
+      project: { label: "案件" }
+    },
+    // 推移の積み上げ・クロス表で色・列を分ける上位の数（残りは「その他」にまとめる）
+    topN: 7,
+    crossMaxCols: 12,
     // COQL：1回200件、OFFSET は 2,000 まで（スキル zoho-crm-build 第10章）
     pageSize: 200,
     maxOffset: 2000,
