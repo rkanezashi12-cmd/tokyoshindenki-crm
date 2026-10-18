@@ -34,6 +34,8 @@ NOTIFY_THRESHOLD = 100; // この点数以上に上がったら通知する
 TEST_MAIL = true; // ★true = テスト用の送り先だけに送る。本稼働で false にする
 MAIL_TO_TEST = "r-kanezashi@funaisoken.co.jp";
 MAIL_TO_PROD = "k-watanabe@tokyoshindenki.co.jp,h-mochizuki@tokyoshindenki.co.jp,k-eto@tokyoshindenki.co.jp,h-asai@tokyoshindenki.co.jp,m-watanabe@tokyoshindenki.co.jp";
+EXCLUDE_INTERNAL = true; // ★true = 下のドメインのメールアドレスの見込み客・担当者には通知しない。社内のアドレスでテストするときだけ false にする
+INTERNAL_DOMAINS = {"@funaisoken.co.jp", "@tokyoshindenki.co.jp"}; // 通知しないドメイン（小文字で書く）
 F_HOT_DATE = "field19"; // ホットリードになった日（日付・既存項目）
 SET_HOT_DATE = true; // true = 通知のたびに今日の日付で上書きする（既存のワークフロー「ホットリード時_メール通知、項目更新」と同じ項目を使う。どちらも残す）
 CRM_WEB = "https://crm.zoho.jp/crm/org90001386318/tab/"; // レコードURLの前半（組織のドメイン名）
@@ -191,6 +193,19 @@ info "===== SUCCESS =====";
 if(crossed == false)
 {
 	return;
+}
+// 社内（船井総研・東京新電機）のアドレスの人には通知しない。スコアと「ホットリードになった日」は他の人と同じく更新済み
+contactEmail = ifnull(contacts.get("Email"), "").toString().trim().toLowerCase();
+if(EXCLUDE_INTERNAL == true)
+{
+	for each dom in INTERNAL_DOMAINS
+	{
+		if(contactEmail.contains(dom))
+		{
+			info "[add] 通知しない（社内のアドレス " + dom + "）contactId=" + contactId;
+			return;
+		}
+	}
 }
 contactUrl = CRM_WEB + CONTACTS_TAB + "/" + contactId;
 fullName = ifnull(contacts.get("Full_Name"), "").toString();
