@@ -65,6 +65,7 @@ API でつなぎ、機能を追加するためのリポジトリ。
 | `docs/setup.md` | 接続の手順（Self Client・スコープ・クラウド環境の設定・組織の固定） |
 | `widgets/worklog-dashboard/` | 工数ダッシュボード（ホーム画面用ウィジェット）。CRM の API 名は `app/config.js` だけ。`docs/worklog-dashboard/README.md` |
 | `scripts/package_widget.py` | ウィジェットをアップロード用の ZIP（`dist/`）にまとめる |
+| `crm/scoring/` | CRM訪問スコアリングで CRM に送る本文（モジュール・項目）。API 名はここと `docs/scoring/README.md` だけ |
 | `scripts/verify_worklog_totals.py` | 工数の数字の突き合わせ（読み取りのみ）。明細の合計を工数入力の合計工数・ZPタスクの CRM実績工数と比べる |
 
 - 認証情報：環境変数 `TSD_ZOHO_CLIENT_ID`・`TSD_ZOHO_CLIENT_SECRET`・`TSD_ZOHO_REFRESH_TOKEN`（手元では `.env`）
@@ -77,3 +78,5 @@ API でつなぎ、機能を追加するためのリポジトリ。
 
 - **工数ダッシュボード**：工数入力（`WorkLogs`）の工数明細（サブフォーム `WorkLogItems`）を、作業担当者別・PJ名別・工程別（ZPタスクのタスク名）・期間別（日／週／月）に集計してホーム画面に出す。
   CRM は読み取りだけ。既存のワークフロー・関数が動いているため、API 名は変えない
+- **CRM訪問スコアリング**（構築中）：SalesIQ の訪問の閲覧 URL をスコアリングルール（新モジュール `ScoringRules`）と照らして見込み客・担当者（`Contacts`）に点数を足し、30日訪問が無ければ減らす。
+  船井総研の仕様書から「顧客タイプ区分名」「属性区分」を外したもの。手順と状況は `docs/scoring/README.md`

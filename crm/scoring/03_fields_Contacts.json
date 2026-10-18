@@ -1,0 +1,8 @@
+{
+  "fields": [
+    { "field_label": "CRM訪問スコア", "api_name": "CRM_Visit_Score", "data_type": "integer" },
+    { "field_label": "スコア計算済み日時", "api_name": "Score_Calculated_At", "data_type": "datetime" },
+    { "field_label": "スコア減衰日", "api_name": "Score_Decay_Date", "data_type": "date" },
+    { "field_label": "スコア保有", "api_name": "Has_Score", "data_type": "boolean" }
+  ]
+}
