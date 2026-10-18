@@ -11,3 +11,5 @@
 | `widgets/worklog-dashboard/app/main.js` `coql` | SDK の `ZOHO.CRM.API.coql` の応答は `{data: [...], info: {more_records}}`。0件のときは本文なし（中身の無い値）で返る | 本番でウィジェットを開き、0件の期間と 200 件を超える期間で確かめる |
 | `widgets/worklog-dashboard/app/main.js` `boot` | ホーム画面に置いたウィジェットでも `ZOHO.embeddedApp.init()` が解決する（`PageLoad` が来なくても動くよう、両方で起動する） | ホーム画面に置いて開く |
 | `docs/worklog-dashboard/README.md`「Zoho への登録」 | ホーム画面のコンポーネントにウィジェットを置ける。どの種類を選べばよいかは未確認 | ウィジェット作成画面の種類の一覧と、ホーム画面のカスタマイズで確かめる |
+| `crm/scoring/02_fields_ScoringRules.json`・`03_fields_Contacts.json` | 項目作成の `data_type` に `integer`・`datetime`・`date`・`boolean` が通る（スキルに例が無い。既存項目の GET で返る名前から推定）。`required: true` が効く | 作成後に `GET /crm/v8/settings/fields` で種類と必須を確かめる |
+| `crm/scoring/01_module_ScoringRules.json` | `display_field.field_label` に「説明」を渡すと主項目の表示名が「説明」、API 名は `Name` になる（スキル第3章） | 作成後に項目の一覧で確かめる |

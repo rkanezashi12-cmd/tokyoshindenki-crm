@@ -1,0 +1,9 @@
+{
+  "modules": [{
+    "plural_label": "スコアリングルール",
+    "singular_label": "スコアリングルール",
+    "api_name": "ScoringRules",
+    "profiles": [{ "id": "<GET /crm/v8/settings/profiles で取得した管理者・標準のプロファイル ID>" }],
+    "display_field": { "field_label": "説明", "data_type": "text" }
+  }]
+}
