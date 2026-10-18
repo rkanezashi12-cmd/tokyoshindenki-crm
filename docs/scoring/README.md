@@ -80,7 +80,7 @@ SalesIQ から入る「訪問」の閲覧ページ URL をルールと照らし�
 | 関数の API 名 | ファイル | カテゴリー・引数 | 呼び出し元 |
 |---|---|---|---|
 | `add_crm_visit_score` | `add_crm_visit_score.dg` | automation／`contactId`（Int） | ワークフロー（手順7） |
-| `decay_crm_visit_score` | `decay_crm_visit_score.dg` | automation／なし | スケジュール（手順8） |
+| `decay_crm_visit_score` | `decay_crm_visit_score.dg` | schedule／なし（スケジュールの登録画面で選べるように、仕様書 5.1 の「スケジュール」カテゴリーの形にした） | スケジュール（手順8） |
 
 - 仕様書第4・5章のソースの★を、上の API 名に差し替えた。加算関数からは「顧客タイプ区分名」「属性区分」の絞り込みを外した（すべてのルールが全員に効く）。それ以外の処理は仕様書のまま
 - 関連リストの API 名 `Visits_Zoho_Livedesk`（Contacts）・`Actions_Performed`（Visits）は、2026-10-18 に `GET /settings/related_lists` で確認した
