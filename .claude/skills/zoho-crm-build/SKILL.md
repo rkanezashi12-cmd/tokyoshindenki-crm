@@ -449,6 +449,9 @@ void schedule.fn_nightly() { ... }
 - Deluge は作成と同時に**自動 publish** される（Java / Node / Python は publish オブジェクトが要る）。
 - 更新は **PATCH は `INVALID_REQUEST_METHOD`。PUT を使う。**
 - 更新の payload から **`api_name` を外すこと**（`NOT_ALLOWED: Api name update is not allowed`）。
+- ★更新の metadata の **`name` は `^[A-Za-z][A-Za-z0-9 _-]*$` だけ**（2026-10-18、JP DC の本番組織）。画面で日本語の表示名を付けた関数は、
+  GET の `name` も日本語で返るので、そのまま送ると `INVALID_DATA`（`json_path: $.functions[0].name`）。**`name` を外して**
+  `runtime`・`category` と code パートだけで PUT すると `function updated successfully` になり、日本語の表示名・引数（`arguments`）は変わらなかった
 
 ### API 構築時に踏んだ Deluge の罠
 
