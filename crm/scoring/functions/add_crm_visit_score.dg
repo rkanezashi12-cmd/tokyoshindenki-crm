@@ -1,0 +1,164 @@
+void automation.add_crm_visit_score(Int contactId)
+{
+/*
+【処理概要】前回計算以降に発生した訪問の行動URLをスコアリングルールと照合し、
+　見込み客・担当者のCRM訪問スコアへ差分加算する（減衰後のスコアを壊さない）
+　加算時にスコア保有フラグを true にする（減衰関数の検索用）
+【トリガー】見込み客・担当者のワークフロー（最後の訪問日時が任意の値に更新されたとき）
+【引数】contactId = 見込み客・担当者（Contacts）のレコードID
+【設計】ウォーターマーク方式のため何度発火しても二重加算しない
+　CUTOFF より前に作成された訪問は対象外（過去閲覧はスコアしない）
+【元】船井総研「CRM訪問スコアリング機能 実装仕様書」（2026-07-21 版1.0）第4章
+　東京新電機様向けに「顧客タイプ区分名」「属性区分」による絞り込みを外した（すべてのルールが全員に効く）
+*/
+// ===== 設定エリア（API 名は docs/scoring/README.md と同じ）=====
+VISITS = "Visits"; // 訪問モジュール
+ACTIONS = "Actions_Performed"; // 訪問配下の「行動」関連リスト
+CONTACTS = "Contacts"; // 見込み客・担当者
+CONTACT_VISITS_RL = "Visits_Zoho_Livedesk"; // 見込み客・担当者配下の「訪問 - Zoho SalesIQ」関連リスト
+SCORING_MODULE = "ScoringRules"; // スコアリングルール
+SCORE_FIELD = "CRM_Visit_Score"; // CRM訪問スコア（整数）
+F_WATERMARK = "Score_Calculated_At"; // スコア計算済み日時（日時）
+F_HAS_SCORE = "Has_Score"; // スコア保有（チェックボックス）
+F_TARGET = "Scoring_Target"; // スコアリング対象（選択リスト）
+F_VALUE = "Match_Value"; // 値（1行）
+F_COND = "Match_Condition"; // 条件（選択リスト）
+F_POINT = "Points"; // 点数（整数）
+CUTOFF = "2026-10-18 00:00:00"; // ★稼働開始日時（yyyy-MM-dd HH:mm:ss・組織の時刻）。テストで過去に変えたら必ず戻す
+// =========================================================
+info "===== add_crm_visit_score START contactId=" + contactId + " =====";
+// STEP1: 見込み客・担当者を取得し、ウォーターマークを得る
+contacts = zoho.crm.getRecordById(CONTACTS, contactId);
+if(contacts.get("id") == null)
+{
+	info "[add] ERROR: 見込み客・担当者の取得失敗";
+	return;
+}
+// 計算済み日時（空なら CUTOFF を使用 = 稼働開始前の訪問は対象外）
+wmRaw = ifnull(contacts.get(F_WATERMARK), "").toString();
+if(wmRaw == "")
+{
+	watermarkDt = CUTOFF.toTime("yyyy-MM-dd HH:mm:ss");
+}
+else
+{
+	watermarkDt = wmRaw.subString(0, 19).replaceAll("T", " ").toTime("yyyy-MM-dd HH:mm:ss");
+}
+info "[add] STEP1 計算済み日時=" + watermarkDt;
+// STEP2: スコアリングルールを全件取得（20ページ = 最大4,000件まで。超える場合はページ番号を追加）
+applicableRules = list();
+for each page in {1, 2, 3, 4, 5, 6, 7, 8, 9, 10, 11, 12, 13, 14, 15, 16, 17, 18, 19, 20}
+{
+	rules = zoho.crm.getRecords(SCORING_MODULE, page, 200);
+	if(rules == null || rules.size() == 0) { break; }
+	for each rule in rules
+	{
+		target = ifnull(rule.get(F_TARGET), "").toString();
+		if(target != "閲覧したURLが") { continue; }
+		applicableRules.add(rule);
+	}
+	if(rules.size() < 200) { break; }
+}
+info "[add] STEP2 適用ルール数=" + applicableRules.size();
+if(applicableRules.size() == 0)
+{
+	info "[add] 適用ルールなしのため終了";
+	return;
+}
+// STEP3: ウォーターマークより後に作成された訪問だけを差分加算
+delta = 0;
+maxCreatedRaw = "";
+maxCreatedDt = watermarkDt;
+for each vPage in {1, 2, 3, 4, 5, 6, 7, 8, 9, 10}
+{
+	visitList = zoho.crm.getRelatedRecords(CONTACT_VISITS_RL, CONTACTS, contactId, vPage, 200);
+	if(visitList == null || visitList.size() == 0) { break; }
+	for each v in visitList
+	{
+		createdRaw = ifnull(v.get("Created_Time"), "").toString();
+		if(createdRaw == "") { continue; }
+		createdDt = createdRaw.subString(0, 19).replaceAll("T", " ").toTime("yyyy-MM-dd HH:mm:ss");
+		if(createdDt <= watermarkDt) { continue; } // 計算済みの訪問はスキップ（二重加算防止）
+		// 訪問配下の行動URL × ルール照合
+		vId = v.get("id");
+		for each aPage in {1, 2, 3, 4, 5}
+		{
+			actions = zoho.crm.getRelatedRecords(ACTIONS, VISITS, vId, aPage, 200);
+			if(actions == null || actions.size() == 0) { break; }
+			for each action in actions
+			{
+				actionUrl = ifnull(action.get("Actions"), "").toString().trim();
+				if(actionUrl == "") { continue; }
+				for each rule in applicableRules
+				{
+					val = ifnull(rule.get(F_VALUE), "").toString().trim();
+					cond = ifnull(rule.get(F_COND), "").toString();
+					point = ifnull(rule.get(F_POINT), 0).toString().toLong();
+					if(val == "") { continue; }
+					matched = false;
+					if(cond == "を含むとき")
+					{
+						if(actionUrl.contains(val)) { matched = true; }
+					}
+					else if(cond == "を含まないとき")
+					{
+						if(actionUrl.contains(val) == false) { matched = true; }
+					}
+					else if(cond == "と等しい")
+					{
+						if(actionUrl == val) { matched = true; }
+					}
+					else if(cond == "と等しくない")
+					{
+						if(actionUrl != val) { matched = true; }
+					}
+					if(matched == true)
+					{
+						delta = delta + point;
+						info "[add] 加算 +" + point + " url=" + actionUrl;
+					}
+				}
+			}
+			if(actions.size() < 200) { break; }
+		}
+		// 処理済みの最大作成日時を控える（ウォーターマーク前進用）
+		if(createdDt > maxCreatedDt)
+		{
+			maxCreatedDt = createdDt;
+			maxCreatedRaw = createdRaw;
+		}
+	}
+	if(visitList.size() < 200) { break; }
+}
+info "[add] STEP3 差分=" + delta;
+// STEP4: 差分またはウォーターマークの前進があれば更新
+if(delta == 0 && maxCreatedRaw == "")
+{
+	info "[add] 新規訪問なしのため更新スキップ";
+	return;
+}
+currentScore = ifnull(contacts.get(SCORE_FIELD), 0).toString().toLong();
+newScore = currentScore + delta;
+upd = Map();
+upd.put(SCORE_FIELD, newScore);
+if(newScore > 0)
+{
+	upd.put(F_HAS_SCORE, true); // 減衰関数の検索対象フラグ
+}
+if(maxCreatedRaw != "")
+{
+	upd.put(F_WATERMARK, maxCreatedRaw); // API の返す日時文字列をそのまま格納
+}
+info "[add] STEP4 更新 " + currentScore + "→" + newScore;
+res = zoho.crm.updateRecord(CONTACTS, contactId, upd);
+info "[add] update生レスポンス=" + res;
+if(res.containsKey("id"))
+{
+	info "===== SUCCESS =====";
+}
+else
+{
+	info "[add] ERROR: 更新失敗 res=" + res;
+}
+return;
+}

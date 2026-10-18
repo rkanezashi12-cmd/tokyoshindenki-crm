@@ -1,0 +1,84 @@
+void automation.decay_crm_visit_score()
+{
+/*
+【処理概要】スコア保有フラグが true の見込み客・担当者だけを検索し、
+　最後の訪問から30日以上経過していればCRM訪問スコアを25%減衰する
+　減衰は30日ごとに繰り返し（複利）。期間内に訪問があれば減衰しない
+　スコアが0に達したらスコア保有フラグを false に戻す
+【トリガー】スケジュール（毎日 2:00）／引数なし
+【元】船井総研「CRM訪問スコアリング機能 実装仕様書」（2026-07-21 版1.0）第5章（API 名の差し替えのみ）
+*/
+// ===== 設定エリア（API 名は docs/scoring/README.md と同じ）=====
+CONTACTS = "Contacts"; // 見込み客・担当者
+SCORE_FIELD = "CRM_Visit_Score"; // CRM訪問スコア（整数）
+F_DECAY_DATE = "Score_Decay_Date"; // スコア減衰日（日付）
+F_HAS_SCORE = "Has_Score"; // スコア保有（チェックボックス）
+DECAY_DAYS = 30; // この日数訪問がなければ減衰。テストで0に変えたら必ず30に戻す
+DECAY_RATE = 0.75; // 25%減衰 = 0.75倍
+DRY_RUN = true; // ★true=判定ログのみ / false=本実行。導入時は true で確かめてから false へ
+// =========================================================
+info "===== decay_crm_visit_score START (DRY_RUN=" + DRY_RUN + ") =====";
+today = zoho.currentdate;
+updated = 0;
+checked = 0;
+// スコア保有者だけを検索（25ページ = 最大5,000件まで。超える場合はページ番号を追加）
+criteria = "(" + F_HAS_SCORE + ":equals:true)";
+for each page in {1, 2, 3, 4, 5, 6, 7, 8, 9, 10, 11, 12, 13, 14, 15, 16, 17, 18, 19, 20, 21, 22, 23, 24, 25}
+{
+	recs = zoho.crm.searchRecords(CONTACTS, criteria, page, 200);
+	if(recs == null || recs.size() == 0) { break; }
+	for each c in recs
+	{
+		cId = c.get("id");
+		score = ifnull(c.get(SCORE_FIELD), 0).toString().toLong();
+		checked = checked + 1;
+		// スコアが既に0以下ならフラグだけ後始末（検索対象から外す）
+		if(score <= 0)
+		{
+			if(!DRY_RUN)
+			{
+				upd = Map();
+				upd.put(F_HAS_SCORE, false);
+				zoho.crm.updateRecord(CONTACTS, cId, upd);
+			}
+			info "[decay] フラグ解除(スコア0) id=" + cId;
+			continue;
+		}
+		// 最後の訪問日時（無ければ減衰対象外）
+		lvRaw = ifnull(c.get("Last_Visited_Time"), "").toString();
+		if(lvRaw == "") { continue; }
+		lastVisitDate = lvRaw.subString(0, 10).toDate();
+		// 減衰の起点 = 最後の訪問日 と 前回減衰日 の遅いほう
+		baseDate = lastVisitDate;
+		decayRaw = ifnull(c.get(F_DECAY_DATE), "").toString();
+		if(decayRaw != "")
+		{
+			decayDate = decayRaw.subString(0, 10).toDate();
+			if(decayDate > baseDate) { baseDate = decayDate; }
+		}
+		days = daysBetween(baseDate, today);
+		if(days < DECAY_DAYS) { continue; } // 期間内に訪問(または減衰)あり → 減衰しない
+		// 25%減衰。四捨五入で値が変わらない場合は1ずつ下げる（下げ止まり防止）
+		newScore = (score * DECAY_RATE).round(0).toLong();
+		if(newScore >= score) { newScore = score - 1; }
+		if(newScore < 0) { newScore = 0; }
+		info "[decay] 対象 id=" + cId + " 経過=" + days + "日 " + score + "→" + newScore;
+		if(!DRY_RUN)
+		{
+			upd = Map();
+			upd.put(SCORE_FIELD, newScore);
+			upd.put(F_DECAY_DATE, today.toString("yyyy-MM-dd"));
+			if(newScore == 0)
+			{
+				upd.put(F_HAS_SCORE, false); // 0に達したら検索対象から外す
+			}
+			res = zoho.crm.updateRecord(CONTACTS, cId, upd);
+			info "[decay] update res=" + res;
+		}
+		updated = updated + 1;
+	}
+	if(recs.size() < 200) { break; }
+}
+info "===== END 検索ヒット=" + checked + "件 / 減衰対象=" + updated + "件 (DRY_RUN=" + DRY_RUN + ") =====";
+return;
+}
