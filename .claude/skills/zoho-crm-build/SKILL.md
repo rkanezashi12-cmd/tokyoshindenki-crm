@@ -460,6 +460,7 @@ void schedule.fn_nightly() { ... }
 | `while` が動かない | 使えない。固定リストの `for each` + `break` でページングする |
 | ワークフローが起動しない | `createRecord` / `updateRecord` は trigger 省略時に**起動しない**（REST とは逆）。Map の `"trigger"` キーに List を入れて渡す |
 | レコードが取れず null | `getRecordById` は `{"approved":"both"}` を付けないと承認待ちレコードを返さない |
+| `The "from" address can only be either zoho.loginuserid or a verified email address`（関数の保存時） | `sendmail` の `from` に `zoho.adminuserid` は使えない（2026-10-18、JP DC の本番組織）。`zoho.loginuserid` か、確認済みのメールアドレスを書く |
 
 ### Deluge から外部 API（自前のバックエンドなど）を呼ぶ（実測）
 
