@@ -11,4 +11,4 @@
 | `widgets/worklog-dashboard/app/main.js` `coql` | SDK の `ZOHO.CRM.API.coql` の応答は `{data: [...], info: {more_records}}`。0件のときは本文なし（中身の無い値）で返る | 本番でウィジェットを開き、0件の期間と 200 件を超える期間で確かめる |
 | `widgets/worklog-dashboard/app/main.js` `boot` | ホーム画面に置いたウィジェットでも `ZOHO.embeddedApp.init()` が解決する（`PageLoad` が来なくても動くよう、両方で起動する） | ホーム画面に置いて開く |
 | `docs/worklog-dashboard/README.md`「Zoho への登録」 | ホーム画面のコンポーネントにウィジェットを置ける。どの種類を選べばよいかは未確認 | ウィジェット作成画面の種類の一覧と、ホーム画面のカスタマイズで確かめる |
-| `crm/scoring/functions/add_crm_visit_score.dg` | 訪問の「行動」関連リスト（`Actions_Performed`）の行の URL は `Actions` に入る。`zoho.crm.updateRecord` を第4引数なしで呼ぶとワークフローは発火しない（どちらも船井総研の仕様書の記載。この組織では未確認） | 仕様書 9.2 のテストで、加算ログの `url=` と、ワークフローが再帰で動いていないこと（実行履歴）を確かめる |
+| `crm/scoring/functions/add_crm_visit_score.dg` | `zoho.crm.updateRecord` を第4引数なしで呼ぶとワークフローは発火しない（船井総研の仕様書の記載。この組織では未確認）。行動の URL が `Actions` に入ることは 2026-10-18 のテストで確認済み | ワークフローを作った後の自動発火テストで、実行履歴にワークフローが2回続けて出ていないことを確かめる |
