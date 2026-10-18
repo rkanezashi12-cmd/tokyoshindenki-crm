@@ -1,7 +1,7 @@
 // 工数ダッシュボードを実際のブラウザで動かす結合テスト（架空のデータ。Zoho には接続しない）
 //   node tests/widget/e2e_heavy.mjs
 // 確かめること：200件を超えるページ送り・1か月 2,000件超（OFFSET 上限）の期間分割で取りこぼしが無いこと、
-// 合計の表示、前期間にデータが無いときの表示、絞り込み。Playwright が無ければ何もせず終わる（終了コード 0）。
+// 合計の表示、前期間にデータが無いときの表示、絞り込み（作業担当者・工程）、リセット。Playwright が無ければ何もせず終わる（終了コード 0）。
 import path from "node:path";
 import { execSync } from "node:child_process";
 import { pathToFileURL, fileURLToPath } from "node:url";
@@ -72,6 +72,25 @@ try {
   for (let i = 1; i < 450; i++) if (i % 9 === 0) p0 += 1;
   eq("工程0 で絞り込んだ合計", await p.evaluate(() => document.querySelector("#kpis .kpi .v").textContent),
     (Math.round(p0 * 10) / 10).toLocaleString("ja-JP") + "h");
+  // 絞り込み：作業担当者（担当3）を追加。工程0 かつ 担当3
+  await p.keyboard.press("Escape");
+  await p.click("#ms-staff .ms-btn");
+  eq("作業担当者の選択肢の数", await p.evaluate(() => document.querySelectorAll("#ms-staff .ms-item").length), 7);
+  await p.fill("#ms-staff .ms-search", "担当3");
+  await p.click("#ms-staff .ms-item >> nth=0");
+  await p.keyboard.press("Escape");
+  let ps = 0; for (let i = 0; i < 2450; i++) if (i % 9 === 0 && i % 7 === 3) ps += 0.5 + (i % 4) * 0.25;
+  for (let i = 1; i < 450; i++) if (i % 9 === 0 && i % 7 === 3) ps += 1;
+  eq("工程0 かつ 担当3 の合計", await p.evaluate(() => document.querySelector("#kpis .kpi .v").textContent),
+    (Math.round(ps * 10) / 10).toLocaleString("ja-JP") + "h");
+  eq("絞り込みの表示に作業担当者", await p.evaluate(() => document.getElementById("chips").textContent.includes("作業担当者担当3")), true);
+  // 入力状況は作業担当者の絞り込みだけ掛かる（1行だけになる）
+  await p.click("#tab-input");
+  eq("入力状況の行（担当3だけ）", await p.evaluate(() => [...document.querySelectorAll("#body-input tbody tr th")].map((e) => e.textContent)), ["担当3"]);
+  await p.click("#tab-overview");
+  // リセットで作業担当者も外れる
+  await p.click("#reset-filters");
+  eq("リセット後の作業担当者ボタン", await p.evaluate(() => document.querySelector("#ms-staff .ms-value").textContent), "すべて");
   eq("画面のエラー", errors, []);
 } catch (e) {
   if (!fails.length) throw e;

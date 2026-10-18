@@ -681,6 +681,7 @@
     if (started) return;
     started = true;
     selects = [
+      new MultiSelect($("ms-staff"), "staff", "作業担当者"),
       new MultiSelect($("ms-project"), "project", "PJ名"),
       new MultiSelect($("ms-process"), "process", "工程")
     ];
