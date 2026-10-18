@@ -6,12 +6,15 @@
 - どの API を呼ぶ前にも GET /crm/v8/org で組織を照合し、id・domain_name・company_name が
   1つでも違えば中断する。組織を固定する前は org の確認以外を拒否する
 - 書き込みは allow_write=True のときだけ。DELETE は実装しない
+- 関数のコードの更新（update_function）は、コードの宣言が更新先の関数の api_name・カテゴリーと
+  一致するときだけ送る（別の関数を上書きしないため）
 """
 
 import hashlib
 import json
 import os
 import re
+import secrets
 import time
 import urllib.error
 import urllib.parse
@@ -26,6 +29,7 @@ WRITE_LOG = ROOT / "logs" / "writes.log"
 ORG_KEYS = ("id", "domain_name", "company_name")
 WRITE_METHODS = ("POST", "PUT", "PATCH")
 MODULE_RE = re.compile(r"^[A-Za-z][A-Za-z0-9_]*$")
+FUNCTION_DECL_RE = re.compile(r"^\s*\w+\s+([A-Za-z_]+)\.([A-Za-z0-9_]+)\s*\(")
 
 
 class GuardError(RuntimeError):
@@ -179,13 +183,15 @@ class CRMClient:
             url += ("&" if "?" in url else "?") + urllib.parse.urlencode(params)
         return url
 
-    def _send(self, method, path, params=None, body=None):
+    def _send(self, method, path, params=None, body=None, *, raw=None, content_type=None):
         url = self._url(path, params)
         data = None if body is None else json.dumps(body, ensure_ascii=False).encode()
+        if raw is not None:
+            data = raw
         for attempt in range(2):
             headers = {"Authorization": f"Zoho-oauthtoken {self.access_token()}"}
             if data is not None:
-                headers["Content-Type"] = "application/json"
+                headers["Content-Type"] = content_type or "application/json"
             status, raw = self._transport(method, url, headers, data)
             parsed = parse_json(raw)
             code = parsed.get("code") if isinstance(parsed, dict) else None
@@ -250,6 +256,27 @@ class CRMClient:
         self._log_write(method, path, status)
         return data
 
+    def update_function(self, function_id, code):
+        """関数のコードを更新する（PUT multipart。スキル第8章）。名前・カテゴリー・説明は今の値のまま送る。"""
+        if not str(function_id).isdigit():
+            raise GuardError(f"関数の id は数字だけです: {function_id}")
+        if not self.allow_write:
+            raise GuardError("書き込みは許可されていません。ユーザーの指示があるときだけ --allow-write を付けます")
+        path = f"/crm/{self.cfg['api_version']}/settings/functions/{function_id}"
+        current = self.get(path)["functions"][0]
+        check_function_decl(code, current)
+        # api_name は送らない（更新できず NOT_ALLOWED になる。スキル第8章）
+        meta = {"functions": [{k: current[k] for k in ("name", "runtime", "category", "description")
+                               if current.get(k) is not None}]}
+        raw, content_type = build_function_multipart(meta, code, f"{current['api_name']}.ds")
+        try:
+            status, data = self._send("PUT", path, raw=raw, content_type=content_type)
+        except ZohoAPIError as e:
+            self._log_write("PUT", path, e.status)
+            raise
+        self._log_write("PUT", path, status)
+        return data
+
     def _log_write(self, method, path, status):
         # 本文（個人情報を含みうる）とトークンは残さない
         WRITE_LOG.parent.mkdir(exist_ok=True)
@@ -264,6 +291,31 @@ def check_api_domain(token_response, cfg):
     api_domain = token_response.get("api_domain")
     if api_domain and api_domain.rstrip("/") != f"https://{cfg['api_host']}":
         raise GuardError(f"認証情報のデータセンターが違います（api_domain={api_domain}）。東京新電機様は .jp です")
+
+
+def check_function_decl(code, function):
+    """コードの1行目の宣言（例 void automation.add_x(Int id)）が更新先の関数と一致するか確かめる。"""
+    first = next((line for line in code.splitlines() if line.strip()), "")
+    m = FUNCTION_DECL_RE.match(first)
+    if not m:
+        raise GuardError(f"コードの1行目が関数の宣言ではありません: {first[:80]}")
+    category, api_name = m.group(1).lower(), m.group(2)
+    expected = (str(function.get("category", "")).lower().replace(" ", ""), function.get("api_name"))
+    if (category, api_name) != expected:
+        raise GuardError(f"コードの宣言（{category}.{api_name}）が更新先の関数（{expected[0]}.{expected[1]}）と違います。中断します")
+
+
+def build_function_multipart(meta, code, filename):
+    """metadata（JSON 文字列）と code（.ds ファイル）の2パートを組む。"""
+    boundary = "tsdcrm" + secrets.token_hex(12)
+    parts = [
+        f"--{boundary}\r\nContent-Disposition: form-data; name=\"metadata\"\r\n"
+        f"Content-Type: application/json\r\n\r\n{json.dumps(meta, ensure_ascii=False)}\r\n",
+        f"--{boundary}\r\nContent-Disposition: form-data; name=\"code\"; filename=\"{filename}\"\r\n"
+        f"Content-Type: application/octet-stream\r\n\r\n{code}\r\n",
+        f"--{boundary}--\r\n",
+    ]
+    return "".join(parts).encode("utf-8"), f"multipart/form-data; boundary={boundary}"
 
 
 def pin_org(org, path=CONFIG_PATH):
