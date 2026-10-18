@@ -205,6 +205,10 @@ Web タブは `generated_type: "webtab_widget"` で、`api_name` は `WebTab1` �
 - ラベルは**日本語が通る**（中黒を含んでも可）。ドキュメントの「letters, numbers, spaces のみ」は実態と異なる。
 - `Events` `Calls` `Tasks` `Cases` `Solutions` `Vendors` `Quotes` `Invoices` は標準モジュールで予約済み。
 - `display_field` で作られる主項目の API 名は **`Name`**（表示名は `display_field.field_label`、文字数 120）。
+  - ★**`display_field.field_label` が使われないことがある**（2026-10-18、JP DC の本番組織）。`"field_label": "説明"` で作ったが、
+    主項目の表示名は「<singular_label>名」（例「スコアリングルール名」）になった（API 名 `Name`・120文字・必須は同じ）。
+    作成後に `GET /settings/fields?module=` で表示名を確かめ、違えば `PATCH /settings/fields/{Name の id}?module=` に
+    `{"fields":[{"field_label":"説明"}]}` だけを送って直せた（HTTP 200、API 名・文字数・必須は変わらない）
 
 ---
 
@@ -257,6 +261,12 @@ PATCH /crm/v8/settings/fields/{field_id}?module={module}  更新
 - 作成後の GET では `length`・`textarea.type`・`unique` がそのまま返るので、作成後の突き合わせに使える。
   返った文字数：主項目 120、URL（`website`、文字数を指定せず作成）450、複数行（小）2000・（大）32000。
 - `Notes` は予約語で `api_name` に使えない（`RESERVED_KEYWORD_NOT_ALLOWED`）。
+- `data_type` の `integer`（文字数 9 で返る）・`datetime`・`date`・`boolean` は、上の例の形（`field_label`・`api_name`・`data_type` だけ）で作れた
+  （2026-10-18、JP DC の本番組織）
+- ★**項目作成の `"required": true` は効かなかった**（2026-10-18、同上）。行は `success` で返るが、項目の設定でも
+  レイアウトの項目（`GET /settings/layouts` の `sections[].fields[].required`）でも `false` のまま。必須にする方法は未検証（画面のレイアウトの編集で付ける）
+- 選択リスト（`picklist`）は、送った値の先頭に Zoho が `-None-` を足す
+- 作った項目は、標準レイアウトの**主要なセクション（例「基本情報」）の末尾**に入る。プロファイルの権限は全プロファイルで見える状態で作られた
 - `autonumber` のゼロ埋め桁数は API で指定できない（prefix と開始番号のみ）。
 - ★**複数選択ルックアップ（`multiselectlookup`）の実物**（2026-10-02、別の本番組織で上の形で作成。スコープは
   `settings.modules.ALL`・`settings.fields.ALL`・`settings.profiles.READ`・`org.READ`）
@@ -328,6 +338,8 @@ PATCH /crm/v8/settings/layouts/{layout_id}?module={module}  セクションの�
 - 変更するセクションだけ送ればよい（全体を送る必要はない）。
 - 項目の操作は1リクエスト5件まで。既存セクションに追加するときは `id` 必須。
 - ★**項目を新しいセクションに入れると元のセクションから移動する**（コピーではない）。
+- 新しいセクションを作る PATCH（`id` を付けないセクション1つだけ）を既存のレイアウトに送ると、セクションは末尾に足され、
+  他のセクションの中身（入れた項目以外）は変わらなかった（2026-10-18、JP DC の本番組織の Contacts。HTTP 200 `layout updated`）
 
 ---
 
