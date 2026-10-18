@@ -46,7 +46,7 @@ SalesIQ から入る「訪問」の閲覧ページ URL をルールと照らし�
 | 3 | スコアリングルールに項目を作る `POST /crm/v8/settings/fields?module=ScoringRules`（`02_…`） | 同上 | 済（2026-10-18。必須にはならなかった → 下の「作成の結果」） |
 | 4 | Contacts に項目を作る `POST /crm/v8/settings/fields?module=Contacts`（`03_…`） | 同上 | 済（2026-10-18） |
 | 5 | 作った項目がレイアウトのどこに入ったか確かめる。足りなければ Contacts のレイアウトに「CRM訪問スコア」のセクションを足す（PATCH。中身を見せて了承を得てから） | `tsd_crm` | 済（2026-10-18。4項目は「基本情報」の末尾に入ったので、新しいセクション「CRM訪問スコア」に移した） |
-| 6 | 関数2本（加算・減衰）を仕様書から直して登録 | 画面（`tsd_crm` は multipart に未対応） | |
+| 6 | 関数2本（加算・減衰）を仕様書から直して登録 | 画面（`tsd_crm` は multipart に未対応） | ソースは用意済み（`crm/scoring/functions/`）。登録は画面で |
 | 7 | ワークフロー（最後の訪問日時が更新されたとき → 加算関数。引数 contactId） | 画面のみ（引数の割り当ては API 非対応） | |
 | 8 | 減衰関数のスケジュール（毎日 2:00） | 画面のみ（API 非対応） | |
 | 9 | 管理用4項目を一般ユーザーには読み取り専用にする | 画面 | |
@@ -59,6 +59,9 @@ SalesIQ から入る「訪問」の閲覧ページ URL をルールと照らし�
 | モジュール `ScoringRules`（使えるプロファイル：管理者・標準） | `13772000006593005` |
 | レイアウト `Standard__s`（ScoringRules） | `13772000006593227`（項目はすべてセクション「CustomModule Information」） |
 | `Name`（主項目） | `13772000006593008` |
+
+画面で変えたもの（2026-10-18）：ScoringRules のセクション名「CustomModule Information」→「スコアリング条件」、システムの項目のセクション「システム管理項目」、`Owner` の表示名「東京新電機担当者」。
+
 | `Scoring_Target`・`Match_Value`・`Match_Condition`・`Points` | `13772000006586042`・`…6586052`・`…6586061`・`…6586073` |
 | Contacts の `CRM_Visit_Score`・`Score_Calculated_At`・`Score_Decay_Date`・`Has_Score` | `13772000006586081`・`…6586090`・`…6586098`・`…6586106` |
 | Contacts のレイアウト `Standard__s`（`13772000000000838`）に足したセクション「CRM訪問スコア」 | `13772000006593416`（上の4項目。既存のセクションの中身は変わっていないことを確認） |
@@ -68,9 +71,21 @@ SalesIQ から入る「訪問」の閲覧ページ URL をルールと照らし�
 - **主項目の表示名が「説明」にならず「スコアリングルール名」になった。** `display_field.field_label` は使われなかった（API 名は `Name`、120文字、必須）。
   `PATCH /crm/v8/settings/fields/13772000006593008?module=ScoringRules`（`{"fields":[{"field_label":"説明"}]}`）で「説明」に直した
 - **`required: true` が効かなかった。** スコアリングルールの4項目は、項目の設定でもレイアウトでも必須になっていない。
-  **画面で必須にする**（設定 → モジュール → スコアリングルール → レイアウトの編集で、スコアリング対象・値・条件・点数を必須に）。未対応
+  画面のレイアウトの編集で必須にした（2026-10-18。GET のレイアウトで `required: true` を確認）
 - 選択リストには Zoho が `-None-` を先頭に足した
 - 項目の権限は、Contacts もスコアリングルールも全プロファイル（船井総研権限を含む）で見える状態で作られた。スコアリングルールのモジュール自体は管理者・標準だけ
+
+## 関数（`crm/scoring/functions/`）
+
+| 関数の API 名 | ファイル | カテゴリー・引数 | 呼び出し元 |
+|---|---|---|---|
+| `add_crm_visit_score` | `add_crm_visit_score.dg` | automation／`contactId`（Int） | ワークフロー（手順7） |
+| `decay_crm_visit_score` | `decay_crm_visit_score.dg` | automation／なし | スケジュール（手順8） |
+
+- 仕様書第4・5章のソースの★を、上の API 名に差し替えた。加算関数からは「顧客タイプ区分名」「属性区分」の絞り込みを外した（すべてのルールが全員に効く）。それ以外の処理は仕様書のまま
+- 関連リストの API 名 `Visits_Zoho_Livedesk`（Contacts）・`Actions_Performed`（Visits）は、2026-10-18 に `GET /settings/related_lists` で確認した
+- `CUTOFF`（稼働開始日時）は仮に `2026-10-18 00:00:00`。本稼働の日時が決まったら直す。テストで過去に変えたら戻す
+- 減衰関数は `DRY_RUN = true` で置いている
 
 ## 認証情報（構築用）
 
