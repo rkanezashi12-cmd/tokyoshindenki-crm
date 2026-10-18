@@ -1,4 +1,4 @@
-void automation.decay_crm_visit_score()
+void schedule.decay_crm_visit_score()
 {
 /*
 【処理概要】スコア保有フラグが true の見込み客・担当者だけを検索し、
@@ -6,7 +6,8 @@ void automation.decay_crm_visit_score()
 　減衰は30日ごとに繰り返し（複利）。期間内に訪問があれば減衰しない
 　スコアが0に達したらスコア保有フラグを false に戻す
 【トリガー】スケジュール（毎日 2:00）／引数なし
-【元】船井総研「CRM訪問スコアリング機能 実装仕様書」（2026-07-21 版1.0）第5章（API 名の差し替えのみ）
+【元】船井総研「CRM訪問スコアリング機能 実装仕様書」（2026-07-21 版1.0）第5章
+　API 名の差し替えと、カテゴリーをスケジュールにした（仕様書 5.1 のとおりシグネチャを schedule. に変更）
 */
 // ===== 設定エリア（API 名は docs/scoring/README.md と同じ）=====
 CONTACTS = "Contacts"; // 見込み客・担当者
